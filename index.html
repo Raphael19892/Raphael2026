@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Block Jumper — A 2D Platformer</title>
+<style>
+  /* ============================================================
+     STYLING
+     Center the game on the page and give it a retro arcade feel.
+     ============================================================ */
+  :root {
+    --sky-top: #5c94fc;   /* Classic Mario-blue sky */
+    --sky-bottom: #7cb0ff;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #1a1a2e;
+    color: #f5f5f5;
+    font-family: "Courier New", Courier, monospace;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;             /* Prevent accidental text selection while playing */
+  }
+
+  h1 {
+    margin: 0 0 12px;
+    font-size: 22px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0 #000;
+  }
+
+  /* Wrapper keeps the canvas and its border crisp */
+  #game-wrapper {
+    position: relative;
+    border: 4px solid #000;
+    box-shadow: 0 0 0 4px #444, 0 10px 30px rgba(0, 0, 0, 0.6);
+    line-height: 0;                /* Removes the gap under the inline canvas */
+  }
+
+  canvas {
+    display: block;
+    image-rendering: pixelated;    /* Keep the blocky pixel-art aesthetic */
+    background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
+  }
+
+  /* Instruction bar under the game */
+  #controls {
+    margin-top: 14px;
+    font-size: 13px;
+    text-align: center;
+    opacity: 0.85;
+    line-height: 1.7;
+  }
+
+  .key {
+    display: inline-block;
+    background: #000;
+    border: 1px solid #666;
+    border-radius: 4px;
+    padding: 1px 8px;
+    margin: 0 2px;
+    font-weight: bold;
+  }
+</style>
+</head>
+<body>
+  <h1>Block Jumper</h1>
+
+  <div id="game-wrapper">
+    <!-- The single canvas everything is drawn onto -->
+    <canvas id="game" width="800" height="450"></canvas>
+  </div>
+
+  <div id="controls">
+    Move: <span class="key">&larr;</span> <span class="key">&rarr;</span>
+    &nbsp;|&nbsp; Jump: <span class="key">Space</span>
+    &nbsp;|&nbsp; Restart: <span class="key">R</span>
+    <br />
+    Stomp enemies from above &mdash; touching them from the side is fatal!
+  </div>
+
+<script>
+"use strict";
+
+/* ================================================================
+ * BLOCK JUMPER
+ * A compact Super Mario Bros.-inspired 2D platformer.
+ *
+ * Architecture overview (kept modular and object-oriented):
+ *   - Entity      : Base class holding position, size and velocity, plus
+ *                   shared axis-aligned bounding-box (AABB) helpers.
+ *   - Player      : Player-controlled entity with gravity, jumping and
+ *                   collision resolution against the world.
+ *   - Platform    : Static solid block the player and enemies stand on.
+ *   - Enemy       : Horizontally patrolling entity that can be stomped.
+ *   - Game        : Owns the world, the fixed-timestep game loop, input
+ *                   handling, updating, collision resolution and rendering.
+ *
+ * All physics is expressed in pixels and *pixels-per-frame* where a
+ * "frame" is normalised to 60 frames-per-second via a delta-time factor,
+ * so the simulation runs at the same speed regardless of the monitor's
+ * refresh rate.
+ * ================================================================ */
+
+/* ---------------------------------------------------------------
+ * GLOBAL PHYSICS CONSTANTS
+ * Centralising these makes the game's "feel" easy to tune.
+ * --------------------------------------------------------------- */
+const GRAVITY = 0.6;          // Downward acceleration added to vy each frame
+const MAX_FALL_SPEED = 16;    // Terminal velocity so falls stay controllable
+const MOVE_SPEED = 4;         // Horizontal run speed (pixels per frame)
+const JUMP_STRENGTH = 13;     // Initial upward velocity when a jump starts
+const FRICTION = 0.8;         // Horizontal damping applied when no key is held
+
+/* ================================================================
+ * ENTITY (base class)
+ * Everything in the world is a rectangle. Storing x/y as the top-left
+ * corner keeps collision math simple and consistent.
+ * ================================================================ */
+class Entity {
+  constructor(x, y, width, height, color) {
+    this.x = x;             // Left edge
+    this.y = y;             // Top edge
+    this.width = width;
+    this.height = height;
+    this.color = color;
+    this.vx = 0;            // Horizontal velocity
+    this.vy = 0;            // Vertical velocity
+    this.dead = false;      // Flagged for removal by the game
+  }
+
+  /* --- Convenient edge accessors (computed, never stored, so they
+   *     always reflect the current position) --- */
+  get left()   { return this.x; }
+  get right()  { return this.x + this.width; }
+  get top()    { return this.y; }
+  get bottom() { return this.y + this.height; }
+
+  /**
+   * Axis-Aligned Bounding Box (AABB) overlap test.
+   *
+   * Two rectangles overlap only if they overlap on BOTH axes at once.
+   * On the X axis they overlap when this.left < other.right AND
+   * this.right > other.left. The same logic applies to the Y axis.
+   * If any of the four comparisons fails, there is a gap on that side
+   * and therefore no collision.
+   */
+  intersects(other) {
+    return (
+      this.left   < other.right &&
+      this.right  > other.left  &&
+      this.top    < other.bottom &&
+      this.bottom > other.top
+    );
+  }
+
+  /* Default draw: a flat coloured rectangle. Subclasses may override. */
+  draw(ctx) {
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+  }
+}
+
+/* ================================================================
+ * PLATFORM
+ * A static, immovable solid block. It never updates; it only exists
+ * to be collided with and drawn.
+ * ================================================================ */
+class Platform extends Entity {
+  constructor(x, y, width, height, color = "#c84c0c") {
+    super(x, y, width, height, color);
+  }
+
+  draw(ctx) {
+    // Brick body
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+
+    // A lighter top lip gives the block a bit of depth / 3D feel
+    ctx.fillStyle = "rgba(255, 255, 255, 0.25)";
+    ctx.fillRect(this.x, this.y, this.width, 4);
+
+    // A darker bottom edge for shading
+    ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+    ctx.fillRect(this.x, this.bottom - 4, this.width, 4);
+  }
+}
+
+/* ================================================================
+ * ENEMY
+ * Patrols horizontally between two X bounds. Reverses direction on
+ * hitting a bound (or a wall, handled in the game's collision step).
+ * Can be stomped from above; touching it from the side kills the player.
+ * ================================================================ */
+class Enemy extends Entity {
+  constructor(x, y, width = 34, height = 34, patrolMin = null, patrolMax = null) {
+    super(x, y, width, height, "#3a9d23");
+    this.vx = 1.5;                                   // Start moving right
+    // If no explicit patrol range is given, roam ~120px around the spawn.
+    this.patrolMin = patrolMin !== null ? patrolMin : x - 60;
+    this.patrolMax = patrolMax !== null ? patrolMax : x + 60;
+    this.animTimer = 0;                              // Drives the little wobble
+  }
+
+  update() {
+    // Move horizontally.
+    this.x += this.vx;
+
+    // Reverse at the patrol boundaries. Clamping the position first
+    // prevents the enemy from slowly drifting past its limits over time.
+    if (this.x <= this.patrolMin) {
+      this.x = this.patrolMin;
+      this.vx = Math.abs(this.vx);       // Force rightward
+    } else if (this.x >= this.patrolMax) {
+      this.x = this.patrolMax;
+      this.vx = -Math.abs(this.vx);      // Force leftward
+    }
+
+    this.animTimer += 0.2;               // Advance the walking animation
+  }
+
+  draw(ctx) {
+    // Body
+    ctx.fillStyle = this.color;
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+
+    // Darker underside
+    ctx.fillStyle = "#256b16";
+    ctx.fillRect(this.x, this.bottom - 6, this.width, 6);
+
+    // Two little "feet" that shuffle using a sine wave for a walk cycle
+    const shuffle = Math.sin(this.animTimer) * 3;
+    ctx.fillStyle = "#1c2b12";
+    ctx.fillRect(this.x + 4 + shuffle, this.bottom - 4, 8, 4);
+    ctx.fillRect(this.x + this.width - 12 - shuffle, this.bottom - 4, 8, 4);
+
+    // Angry white eyes (facing the direction of travel)
+    const eyeShift = this.vx > 0 ? 4 : -4;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(this.x + 8 + eyeShift, this.y + 8, 6, 6);
+    ctx.fillRect(this.x + this.width - 14 + eyeShift, this.y + 8, 6, 6);
+    ctx.fillStyle = "#000";
+    ctx.fillRect(this.x + 10 + eyeShift, this.y + 10, 3, 3);
+    ctx.fillRect(this.x + this.width - 12 + eyeShift, this.y + 10, 3, 3);
+  }
+}
+
+/* ================================================================
+ * PLAYER
+ * The star of the show. Applies gravity, responds to input, and is
+ * resolved against platforms one axis at a time (see Game.update).
+ * ================================================================ */
+class Player extends Entity {
+  constructor(x, y) {
+    super(x, y, 32, 44, "#e52521");   // Classic red
+    this.onGround = false;            // True while standing on something solid
+    this.facing = 1;                  // 1 = right, -1 = left (for drawing)
+    // Store the spawn point so we can respawn on restart.
+    this.spawnX = x;
+    this.spawnY = y;
+  }
+
+  /**
+   * Apply the player's intent based on which keys are currently held.
+   * `input` is the Game's key-state object.
+   */
+  handleInput(input) {
+    // --- Horizontal movement ---
+    if (input.left && !input.right) {
+      this.vx = -MOVE_SPEED;
+      this.facing = -1;
+    } else if (input.right && !input.left) {
+      this.vx = MOVE_SPEED;
+      this.facing = 1;
+    } else {
+      // No horizontal key held: apply friction so we glide to a stop
+      // rather than stopping dead, which feels smoother.
+      this.vx *= FRICTION;
+      if (Math.abs(this.vx) < 0.1) this.vx = 0; // Snap tiny values to zero
+    }
+
+    // --- Jump ---
+    // Only allow a jump when grounded. Jumping sets an instantaneous
+    // upward (negative) velocity; gravity then decelerates and reverses it,
+    // producing a natural parabolic arc.
+    if (input.jump && this.onGround) {
+      this.vy = -JUMP_STRENGTH;
+      this.onGround = false;
+    }
+  }
+
+  /**
+   * Integrate physics: gravity accelerates vy downward every frame,
+   * capped at terminal velocity. `dt` is a 60fps-normalised time factor.
+   */
+  applyPhysics(dt) {
+    this.vy += GRAVITY * dt;
+    if (this.vy > MAX_FALL_SPEED) this.vy = MAX_FALL_SPEED;
+  }
+
+  /* Reset to the spawn position with zeroed velocity (used on restart). */
+  respawn() {
+    this.x = this.spawnX;
+    this.y = this.spawnY;
+    this.vx = 0;
+    this.vy = 0;
+    this.onGround = false;
+    this.dead = false;
+  }
+
+  draw(ctx) {
+    const { x, y, width: w, height: h } = this;
+
+    // Overalls / body
+    ctx.fillStyle = this.color;
+    ctx.fillRect(x, y, w, h);
+
+    // Blue overalls on the lower half
+    ctx.fillStyle = "#2a4fd6";
+    ctx.fillRect(x, y + h * 0.5, w, h * 0.5);
+
+    // Skin-tone face band
+    ctx.fillStyle = "#ffcc99";
+    ctx.fillRect(x + 4, y + 8, w - 8, 12);
+
+    // Cap peak
+    ctx.fillStyle = "#a5150c";
+    ctx.fillRect(x, y, w, 8);
+
+    // Eye — drawn on the side the player is facing
+    ctx.fillStyle = "#000";
+    const eyeX = this.facing === 1 ? x + w - 12 : x + 6;
+    ctx.fillRect(eyeX, y + 12, 4, 4);
+  }
+}
+
+/* ================================================================
+ * GAME
+ * The orchestrator. Holds all entities, runs a fixed-timestep loop
+ * with requestAnimationFrame, processes input, resolves collisions,
+ * tracks score/state and renders every frame.
+ * ================================================================ */
+class Game {
+  constructor(canvasId) {
+    this.canvas = document.getElementById(canvasId);
+    this.ctx = this.canvas.getContext("2d");
+    this.width = this.canvas.width;
+    this.height = this.canvas.height;
+
+    // Current key state. The loop reads this; DOM listeners write to it.
+    this.input = { left: false, right: false, jump: false };
+
+    // Fixed-timestep bookkeeping. We accumulate real elapsed time and
+    // step the simulation in discrete 1/60s chunks so physics is
+    // deterministic and frame-rate independent.
+    this.lastTime = 0;
+    this.accumulator = 0;
+    this.STEP = 1000 / 60;        // Milliseconds per simulation step
+
+    this.state = "playing";       // "playing" | "gameover" | "win"
+    this.score = 0;
+
+    this.buildLevel();
+    this.bindEvents();
+
+    // Kick off the loop. `bind` keeps `this` pointing at the Game instance.
+    this.loop = this.loop.bind(this);
+    requestAnimationFrame(this.loop);
+  }
+
+  /* ------------------------------------------------------------
+   * LEVEL CONSTRUCTION
+   * Lay out the ground, floating platforms, enemies and player.
+   * ------------------------------------------------------------ */
+  buildLevel() {
+    const W = this.width;
+    const H = this.height;
+    const GROUND_H = 40;
+
+    // Ground spans the full width along the bottom.
+    this.platforms = [
+      new Platform(0, H - GROUND_H, W, GROUND_H, "#8b5a2b"),
+
+      // A few floating platforms to jump between.
+      new Platform(140, H - 130, 120, 24),
+      new Platform(340, H - 210, 120, 24),
+      new Platform(540, H - 150, 140, 24),
+      new Platform(660, H - 280, 110, 24),
+    ];
+
+    // Enemies: one patrolling the ground, one patrolling a platform.
+    this.enemies = [
+      // Ground enemy, roams a wide stretch of the floor.
+      new Enemy(400, H - GROUND_H - 34, 34, 34, 300, 560),
+      // Platform enemy, confined to the 540-wide floating block.
+      new Enemy(560, H - 150 - 34, 34, 34, 545, 645),
+    ];
+
+    // Player starts on the left on the ground.
+    this.player = new Player(60, H - GROUND_H - 44);
+
+    this.score = 0;
+    this.state = "playing";
+  }
+
+  /* ------------------------------------------------------------
+   * INPUT
+   * Map keyboard events onto the input state object. Using a state
+   * object (rather than acting directly in the handler) decouples
+   * input from the update step and supports smooth held-key movement.
+   * ------------------------------------------------------------ */
+  bindEvents() {
+    const setKey = (e, pressed) => {
+      switch (e.code) {
+        case "ArrowLeft":
+        case "KeyA":
+          this.input.left = pressed;
+          e.preventDefault();
+          break;
+        case "ArrowRight":
+        case "KeyD":
+          this.input.right = pressed;
+          e.preventDefault();
+          break;
+        case "Space":
+        case "ArrowUp":
+        case "KeyW":
+          this.input.jump = pressed;
+          e.preventDefault();
+          break;
+        case "KeyR":
+          // Restart on key-down only, from any state.
+          if (pressed) this.restart();
+          break;
+      }
+    };
+
+    window.addEventListener("keydown", (e) => setKey(e, true));
+    window.addEventListener("keyup",   (e) => setKey(e, false));
+  }
+
+  restart() {
+    this.buildLevel();
+  }
+
+  /* ------------------------------------------------------------
+   * MAIN LOOP  (requestAnimationFrame)
+   * `timestamp` is the high-resolution time supplied by the browser.
+   * We convert the gap since the last frame into fixed 1/60s steps.
+   * ------------------------------------------------------------ */
+  loop(timestamp) {
+    if (!this.lastTime) this.lastTime = timestamp;
+    let frameTime = timestamp - this.lastTime;
+    this.lastTime = timestamp;
+
+    // Guard against huge jumps (e.g. tab was backgrounded) so the
+    // player never tunnels through the world after a long pause.
+    if (frameTime > 250) frameTime = 250;
+
+    this.accumulator += frameTime;
+
+    // Consume the accumulated time in fixed chunks. Each step advances
+    // the simulation by exactly one 60fps frame (dt = 1).
+    while (this.accumulator >= this.STEP) {
+      if (this.state === "playing") this.update(1);
+      this.accumulator -= this.STEP;
+    }
+
+    this.render();
+    requestAnimationFrame(this.loop);
+  }
+
+  /* ------------------------------------------------------------
+   * UPDATE  (one fixed physics step)
+   * Order matters: read input, integrate velocity, then resolve
+   * collisions one axis at a time to avoid corner-snagging bugs.
+   * ------------------------------------------------------------ */
+  update(dt) {
+    const player = this.player;
+
+    // 1) Intent + gravity.
+    player.handleInput(this.input);
+    player.applyPhysics(dt);
+
+    // 2) Move + resolve on the HORIZONTAL axis first.
+    //    Separating axes is the key trick: by moving X, resolving X,
+    //    then moving Y and resolving Y, each overlap has a single,
+    //    unambiguous "push-out" direction.
+    player.x += player.vx * dt;
+    this.resolveHorizontal(player);
+
+    // 3) Move + resolve on the VERTICAL axis. We must reset onGround
+    //    each frame and only set it true when we actually land on
+    //    something, otherwise the player could "jump" in mid-air.
+    player.onGround = false;
+    player.y += player.vy * dt;
+    this.resolveVertical(player);
+
+    // 4) Keep the player inside the horizontal bounds of the canvas.
+    if (player.left < 0) { player.x = 0; player.vx = 0; }
+    if (player.right > this.width) { player.x = this.width - player.width; player.vx = 0; }
+
+    // 5) Falling off the bottom of the screen is fatal.
+    if (player.top > this.height) {
+      this.state = "gameover";
+    }
+
+    // 6) Update enemies and check them against the world + player.
+    for (const enemy of this.enemies) {
+      enemy.update();
+      // Reverse the enemy if it runs into a platform wall.
+      this.constrainEnemyToPlatforms(enemy);
+    }
+
+    this.handleEnemyCollisions();
+
+    // 7) Remove any enemies flagged dead this frame.
+    this.enemies = this.enemies.filter((e) => !e.dead);
+  }
+
+  /* ------------------------------------------------------------
+   * HORIZONTAL COLLISION RESOLUTION
+   * After the player has been moved along X, push them back out of
+   * any platform they now overlap. The push direction depends on the
+   * sign of vx: moving right means we hit the platform's LEFT face and
+   * must snap the player's right edge to it, and vice-versa.
+   * ------------------------------------------------------------ */
+  resolveHorizontal(player) {
+    for (const p of this.platforms) {
+      if (!player.intersects(p)) continue;
+
+      if (player.vx > 0) {
+        // Moving right: align player's right edge to platform's left edge.
+        player.x = p.left - player.width;
+      } else if (player.vx < 0) {
+        // Moving left: align player's left edge to platform's right edge.
+        player.x = p.right;
+      }
+      player.vx = 0; // Stop horizontal motion on contact.
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * VERTICAL COLLISION RESOLUTION
+   * After moving along Y, resolve overlaps. Moving down (vy > 0) means
+   * we are landing: snap the player's bottom to the platform's top and
+   * mark them grounded. Moving up (vy < 0) means we bonked our head:
+   * snap the top to the platform's bottom and cancel upward velocity.
+   * ------------------------------------------------------------ */
+  resolveVertical(player) {
+    for (const p of this.platforms) {
+      if (!player.intersects(p)) continue;
+
+      if (player.vy > 0) {
+        // Falling onto the top of the platform → landing.
+        player.y = p.top - player.height;
+        player.vy = 0;
+        player.onGround = true;
+      } else if (player.vy < 0) {
+        // Rising into the underside of the platform → head bump.
+        player.y = p.bottom;
+        player.vy = 0;
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * ENEMY vs PLATFORM
+   * Enemies should turn around at ledges/walls. Here we simply flip
+   * their direction if their body overlaps a platform's side, which
+   * keeps them from walking through the floating blocks.
+   * ------------------------------------------------------------ */
+  constrainEnemyToPlatforms(enemy) {
+    for (const p of this.platforms) {
+      // Skip the platform the enemy is standing on (large vertical overlap
+      // with the floor beneath it is expected).
+      if (!enemy.intersects(p)) continue;
+
+      // Only treat it as a wall if the overlap is mostly horizontal —
+      // i.e. the enemy's feet are not simply resting on the top surface.
+      const overlapTop = enemy.bottom - p.top;
+      if (overlapTop > 8) {
+        // Push out and reverse.
+        if (enemy.vx > 0) enemy.x = p.left - enemy.width;
+        else if (enemy.vx < 0) enemy.x = p.right;
+        enemy.vx *= -1;
+      }
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * PLAYER vs ENEMY
+   * The heart of the "stomp" mechanic.
+   *
+   * We distinguish a stomp from a side-hit using the player's vertical
+   * velocity and relative position:
+   *   - If the player is moving downward (vy > 0) AND their feet were
+   *     above the enemy's mid-line on the previous position, it's a
+   *     STOMP: kill the enemy and bounce the player.
+   *   - Otherwise the contact is a SIDE / BELOW hit → GAME OVER.
+   * ------------------------------------------------------------ */
+  handleEnemyCollisions() {
+    const player = this.player;
+
+    for (const enemy of this.enemies) {
+      if (enemy.dead || !player.intersects(enemy)) continue;
+
+      // The player's feet position before this frame's vertical move.
+      // (player.bottom - vy) reconstructs roughly where the feet were.
+      const previousFeet = player.bottom - player.vy;
+      const stompLine = enemy.top + enemy.height * 0.5;
+
+      const isFalling = player.vy > 0;
+      const cameFromAbove = previousFeet <= stompLine;
+
+      if (isFalling && cameFromAbove) {
+        // --- STOMP ---
+        enemy.dead = true;
+        this.score += 100;
+        // Bounce: give the player a small upward hop as a reward.
+        player.vy = -JUMP_STRENGTH * 0.6;
+        player.onGround = false;
+      } else {
+        // --- SIDE / BELOW HIT → death ---
+        this.state = "gameover";
+      }
+    }
+
+    // Win condition: all enemies cleared.
+    if (this.enemies.length === 0 && this.state === "playing") {
+      this.state = "win";
+    }
+  }
+
+  /* ------------------------------------------------------------
+   * RENDER
+   * Clear, draw the world back-to-front, then any HUD/overlay text.
+   * ------------------------------------------------------------ */
+  render() {
+    const ctx = this.ctx;
+
+    // The CSS gradient shows through, so we only need to clear.
+    ctx.clearRect(0, 0, this.width, this.height);
+
+    // Decorative background clouds (purely cosmetic).
+    this.drawClouds(ctx);
+
+    // World geometry.
+    for (const p of this.platforms) p.draw(ctx);
+    for (const e of this.enemies) e.draw(ctx);
+    this.player.draw(ctx);
+
+    // HUD.
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 18px 'Courier New', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("SCORE: " + this.score, 16, 28);
+    ctx.textAlign = "right";
+    ctx.fillText("ENEMIES: " + this.enemies.length, this.width - 16, 28);
+
+    // State overlays.
+    if (this.state === "gameover") this.drawOverlay("GAME OVER", "#e52521");
+    else if (this.state === "win") this.drawOverlay("YOU WIN!", "#ffd700");
+  }
+
+  drawClouds(ctx) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
+    const puff = (cx, cy) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, 18, 0, Math.PI * 2);
+      ctx.arc(cx + 20, cy + 4, 22, 0, Math.PI * 2);
+      ctx.arc(cx + 46, cy, 18, 0, Math.PI * 2);
+      ctx.fill();
+    };
+    puff(120, 80);
+    puff(500, 60);
+    puff(660, 120);
+  }
+
+  drawOverlay(message, color) {
+    const ctx = this.ctx;
+
+    // Dim the scene.
+    ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+    ctx.fillRect(0, 0, this.width, this.height);
+
+    ctx.textAlign = "center";
+    ctx.fillStyle = color;
+    ctx.font = "bold 48px 'Courier New', monospace";
+    ctx.fillText(message, this.width / 2, this.height / 2 - 10);
+
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 20px 'Courier New', monospace";
+    ctx.fillText("Press R to restart", this.width / 2, this.height / 2 + 34);
+
+    if (this.state === "win") {
+      ctx.fillText("Final Score: " + this.score, this.width / 2, this.height / 2 + 66);
+    }
+  }
+}
+
+/* ================================================================
+ * BOOTSTRAP
+ * Create the game once the DOM is ready.
+ * ================================================================ */
+window.addEventListener("load", () => {
+  new Game("game");
+});
+</script>
+</body>
+</html>
