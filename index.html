@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<!-- user-scalable=no + maximum-scale stop double-tap zoom so touch controls
+     feel like game buttons rather than a web page. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
 <title>Block Jumper — A 2D Platformer</title>
 <style>
   /* ============================================================
@@ -18,6 +22,7 @@
     margin: 0;
     padding: 0;
     height: 100%;
+    width: 100%;
     background: #1a1a2e;
     color: #f5f5f5;
     font-family: "Courier New", Courier, monospace;
@@ -26,33 +31,46 @@
     align-items: center;
     justify-content: center;
     user-select: none;             /* Prevent accidental text selection while playing */
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent; /* No blue flash on tap (mobile) */
+    touch-action: none;            /* Disable browser scroll/zoom gestures */
+    overflow: hidden;              /* Keep the game pinned; no page scrolling */
+    overscroll-behavior: none;
   }
 
   h1 {
-    margin: 0 0 12px;
-    font-size: 22px;
+    margin: 0 0 10px;
+    font-size: clamp(16px, 5vw, 22px);   /* Shrink the title on small screens */
     letter-spacing: 2px;
     text-transform: uppercase;
     text-shadow: 2px 2px 0 #000;
   }
 
-  /* Wrapper keeps the canvas and its border crisp */
+  /* Wrapper keeps the canvas and its border crisp. It scales with the
+     viewport: never wider than the screen, never taller than fits with
+     room left for the touch pad below. aspect-ratio preserves 16:9. */
   #game-wrapper {
     position: relative;
     border: 4px solid #000;
     box-shadow: 0 0 0 4px #444, 0 10px 30px rgba(0, 0, 0, 0.6);
     line-height: 0;                /* Removes the gap under the inline canvas */
+    width: min(96vw, 800px);
+    max-height: 70vh;
+    aspect-ratio: 800 / 450;
   }
 
   canvas {
     display: block;
+    width: 100%;                   /* CSS scales the fixed 800x450 buffer to fit */
+    height: 100%;
     image-rendering: pixelated;    /* Keep the blocky pixel-art aesthetic */
     background: linear-gradient(to bottom, var(--sky-top), var(--sky-bottom));
   }
 
-  /* Instruction bar under the game */
+  /* Instruction bar under the game (hidden on touch devices — the
+     on-screen buttons make it self-explanatory and save space). */
   #controls {
-    margin-top: 14px;
+    margin-top: 12px;
     font-size: 13px;
     text-align: center;
     opacity: 0.85;
@@ -68,6 +86,61 @@
     margin: 0 2px;
     font-weight: bold;
   }
+
+  /* ============================================================
+     TOUCH CONTROLS
+     Hidden by default; shown only when the page is opened on a
+     device that supports touch (see the JS feature check). Laid out
+     as a left cluster (◀ ▶) and a right jump button, thumb-friendly.
+     ============================================================ */
+  #touch-controls {
+    display: none;                 /* Toggled to flex on touch devices */
+    width: min(96vw, 800px);
+    margin-top: 14px;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+  }
+
+  body.touch #touch-controls { display: flex; }
+  body.touch #controls { display: none; }  /* Keyboard hints are irrelevant */
+
+  .dpad { display: flex; gap: 12px; }
+
+  .btn {
+    -webkit-user-select: none;
+    user-select: none;
+    touch-action: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 68px;
+    height: 68px;
+    border-radius: 14px;
+    border: 3px solid #000;
+    background: #2b2b40;
+    color: #fff;
+    font-size: 30px;
+    font-weight: bold;
+    box-shadow: 0 4px 0 #000;
+    cursor: pointer;
+  }
+
+  /* .pressed is applied on touchstart for tactile feedback */
+  .btn.pressed {
+    transform: translateY(4px);
+    box-shadow: 0 0 0 #000;
+    background: #3d3d5c;
+  }
+
+  #btn-jump {
+    width: 92px;
+    height: 92px;
+    border-radius: 50%;
+    background: #c0392b;
+    font-size: 16px;
+  }
+  #btn-jump.pressed { background: #e05545; }
 </style>
 </head>
 <body>
@@ -84,6 +157,16 @@
     &nbsp;|&nbsp; Restart: <span class="key">R</span>
     <br />
     Stomp enemies from above &mdash; touching them from the side is fatal!
+  </div>
+
+  <!-- On-screen gamepad for phones/tablets. Shown only on touch devices.
+       Each button carries a data-btn key that the JS maps to input state. -->
+  <div id="touch-controls">
+    <div class="dpad">
+      <div class="btn" id="btn-left"  data-btn="left"  aria-label="Move left">&#9664;</div>
+      <div class="btn" id="btn-right" data-btn="right" aria-label="Move right">&#9654;</div>
+    </div>
+    <div class="btn" id="btn-jump" data-btn="jump" aria-label="Jump">JUMP</div>
   </div>
 
 <script>
@@ -369,6 +452,7 @@ class Game {
 
     this.buildLevel();
     this.bindEvents();
+    this.bindTouch();
 
     // Kick off the loop. `bind` keeps `this` pointing at the Game instance.
     this.loop = this.loop.bind(this);
@@ -444,6 +528,55 @@ class Game {
 
     window.addEventListener("keydown", (e) => setKey(e, true));
     window.addEventListener("keyup",   (e) => setKey(e, false));
+  }
+
+  /* ------------------------------------------------------------
+   * TOUCH INPUT (phones / tablets)
+   * The on-screen buttons write to the SAME `this.input` state object
+   * the keyboard uses, so the update loop needs no special-casing.
+   * We reveal the buttons only on touch-capable devices to avoid
+   * cluttering the desktop layout.
+   * ------------------------------------------------------------ */
+  bindTouch() {
+    const isTouch =
+      "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    if (!isTouch) return;
+
+    document.body.classList.add("touch");
+
+    const buttons = document.querySelectorAll("#touch-controls .btn");
+    buttons.forEach((el) => {
+      const key = el.dataset.btn; // "left" | "right" | "jump"
+
+      // press/release helpers keep visual state and input state in sync.
+      const press = (e) => {
+        e.preventDefault();          // Stop scrolling / synthetic mouse events
+        this.input[key] = true;
+        el.classList.add("pressed");
+      };
+      const release = (e) => {
+        e.preventDefault();
+        this.input[key] = false;
+        el.classList.remove("pressed");
+      };
+
+      // Pointer Events cover touch, pen and mouse in one API. We also
+      // release on pointerleave/cancel so a finger sliding off a button
+      // can never leave a "stuck" key held down.
+      el.addEventListener("pointerdown", press);
+      el.addEventListener("pointerup", release);
+      el.addEventListener("pointerleave", release);
+      el.addEventListener("pointercancel", release);
+    });
+
+    // On touch there is no keyboard, so let a tap anywhere on the canvas
+    // restart the game once it has ended.
+    this.canvas.addEventListener("pointerdown", (e) => {
+      if (this.state === "gameover" || this.state === "win") {
+        e.preventDefault();
+        this.restart();
+      }
+    });
   }
 
   restart() {
@@ -698,7 +831,11 @@ class Game {
 
     ctx.fillStyle = "#fff";
     ctx.font = "bold 20px 'Courier New', monospace";
-    ctx.fillText("Press R to restart", this.width / 2, this.height / 2 + 34);
+    // Touch users tap the screen; keyboard users press R.
+    const restartHint = document.body.classList.contains("touch")
+      ? "Tap to restart"
+      : "Press R to restart";
+    ctx.fillText(restartHint, this.width / 2, this.height / 2 + 34);
 
     if (this.state === "win") {
       ctx.fillText("Final Score: " + this.score, this.width / 2, this.height / 2 + 66);
