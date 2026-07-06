@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Block Bros. — A 2D Platformer Minigame</title>
+<style>
+  /* ============================================================
+     PAGE LAYOUT
+     The canvas is centered and scaled responsively while keeping
+     its internal 960x540 logical resolution (16:9). All game math
+     happens in logical pixels; CSS only stretches the bitmap.
+     ============================================================ */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    background: #1a1c2c;
+    font-family: "Courier New", monospace;
+    overflow: hidden;
+    /* Prevent mobile browsers from scrolling / zooming on touch */
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #game-wrapper {
+    position: relative;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  canvas {
+    /* Fit inside the viewport while preserving the 16:9 aspect ratio */
+    max-width: 100vw;
+    max-height: 100vh;
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    background: #5c94fc; /* classic sky blue */
+    image-rendering: pixelated;
+    display: block;
+  }
+
+  /* ============================================================
+     TOUCH CONTROLS (smartphone support)
+     Shown only on coarse-pointer (touch) devices via media query.
+     They inject the same key states the keyboard uses, so the
+     game logic is 100% input-source agnostic.
+     ============================================================ */
+  .touch-btn {
+    position: absolute;
+    bottom: 4vh;
+    width: 64px;
+    height: 64px;
+    border: 3px solid rgba(255,255,255,0.7);
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    color: rgba(255,255,255,0.85);
+    font-size: 26px;
+    display: none;               /* hidden by default (desktop) */
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+  }
+  .touch-btn:active { background: rgba(255,255,255,0.35); }
+  #btn-left  { left: 5vw; }
+  #btn-right { left: calc(5vw + 84px); }
+  #btn-jump  { right: 5vw; width: 76px; height: 76px; }
+
+  @media (pointer: coarse) {
+    .touch-btn { display: flex; }
+  }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <canvas id="game" width="960" height="540"></canvas>
+  <!-- On-screen buttons for smartphones -->
+  <div class="touch-btn" id="btn-left">&#9664;</div>
+  <div class="touch-btn" id="btn-right">&#9654;</div>
+  <div class="touch-btn" id="btn-jump">&#9650;</div>
+</div>
+
+<script>
+"use strict";
+
+/* ======================================================================
+ *  BLOCK BROS. — a Super Mario Bros.–inspired platformer minigame
+ *
+ *  Architecture (strictly object-oriented, ES6 classes):
+ *
+ *    InputHandler  — normalizes keyboard + touch into a key-state map
+ *    Entity        — abstract base: position, size, velocity, AABB helpers
+ *    Platform      — static solid block (ground segments + floating tiles)
+ *    Enemy         — patrolling block; stompable from above, lethal sideways
+ *    Player        — gravity, run, jump, collision resolution, stomp logic
+ *    Camera        — horizontal side-scrolling viewport that follows the player
+ *    Game          — owns entities, the fixed-timestep loop, and game states
+ *
+ *  All collision detection uses Axis-Aligned Bounding Boxes (AABB).
+ *  The core overlap test and the axis-separated resolution strategy are
+ *  documented in detail where they are implemented.
+ * ==================================================================== */
+
+/* ---------------------------------------------------------------------
+ * Global tuning constants (logical pixels, seconds)
+ * ------------------------------------------------------------------- */
+const CONFIG = {
+  WIDTH: 960,               // logical canvas width
+  HEIGHT: 540,              // logical canvas height
+  GRAVITY: 2200,            // downward acceleration (px/s^2)
+  MOVE_SPEED: 320,          // player horizontal speed (px/s)
+  JUMP_VELOCITY: -820,      // instantaneous upward velocity on jump (px/s)
+  STOMP_BOUNCE: -420,       // small bounce applied after squashing an enemy
+  MAX_FALL_SPEED: 1200,     // terminal velocity cap so tunneling stays rare
+  ENEMY_SPEED: 90,          // enemy patrol speed (px/s)
+  TIMESTEP: 1 / 120,        // fixed physics step (s) — see Game.loop()
+  LEVEL_LENGTH: 3200,       // total level width in logical px
+  DEATH_Y: 700              // falling below this y = fell into a pit
+};
+
+/* =====================================================================
+ * InputHandler
+ * Collects keyboard events AND touch-button events into a single
+ * `keys` set. The Player only ever reads logical actions ("left",
+ * "right", "jump"), never raw event codes, keeping input modular.
+ * =================================================================== */
+class InputHandler {
+  constructor() {
+    /** @type {Set<string>} currently held logical actions */
+    this.keys = new Set();
+
+    // Map physical keys to logical actions. Arrow keys + WASD both work.
+    this.keymap = {
+      ArrowLeft: "left",  KeyA: "left",
+      ArrowRight: "right", KeyD: "right",
+      Space: "jump", ArrowUp: "jump", KeyW: "jump"
+    };
+
+    window.addEventListener("keydown", (e) => {
+      const action = this.keymap[e.code];
+      if (action) {
+        e.preventDefault();       // stop Space/arrows from scrolling the page
+        this.keys.add(action);
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      const action = this.keymap[e.code];
+      if (action) this.keys.delete(action);
+    });
+
+    // Wire the three on-screen smartphone buttons to the same action set.
+    this.bindTouch("btn-left", "left");
+    this.bindTouch("btn-right", "right");
+    this.bindTouch("btn-jump", "jump");
+  }
+
+  /** Attach press/release listeners to a touch button element. */
+  bindTouch(elementId, action) {
+    const el = document.getElementById(elementId);
+    const press = (e) => { e.preventDefault(); this.keys.add(action); };
+    const release = (e) => { e.preventDefault(); this.keys.delete(action); };
+    el.addEventListener("touchstart", press, { passive: false });
+    el.addEventListener("touchend", release, { passive: false });
+    el.addEventListener("touchcancel", release, { passive: false });
+    // Mouse fallback so the buttons also work on desktop for testing.
+    el.addEventListener("mousedown", press);
+    el.addEventListener("mouseup", release);
+    el.addEventListener("mouseleave", release);
+  }
+
+  /** @returns {boolean} whether a logical action is currently held */
+  isDown(action) { return this.keys.has(action); }
+}
+
+/* =====================================================================
+ * Entity (abstract base class)
+ * Every object in the world is an axis-aligned rectangle described by
+ * its top-left corner (x, y) and its size (width, height), plus a
+ * velocity vector (vx, vy) for the dynamic entities.
+ * =================================================================== */
+class Entity {
+  constructor(x, y, width, height) {
+    this.x = x;
+    this.y = y;
+    this.width = width;
+    this.height = height;
+    this.vx = 0;
+    this.vy = 0;
+  }
+
+  /* Convenience edge accessors — these make the collision math below
+   * read like the geometry it describes. */
+  get left()   { return this.x; }
+  get right()  { return this.x + this.width; }
+  get top()    { return this.y; }
+  get bottom() { return this.y + this.height; }
+
+  /**
+   * AABB OVERLAP TEST
+   * -----------------
+   * Two axis-aligned rectangles A and B overlap if and only if they
+   * overlap on BOTH axes simultaneously:
+   *
+   *   X-axis: A.left < B.right  AND  A.right > B.left
+   *   Y-axis: A.top  < B.bottom AND  A.bottom > B.top
+   *
+   * Intuition: project both boxes onto the X axis — they collide there
+   * unless one interval ends before the other begins. Repeat for Y.
+   * If NEITHER axis has a gap, the rectangles must intersect
+   * (this is the Separating Axis Theorem specialized to AABBs, where
+   * the only candidate separating axes are the world X and Y axes).
+   *
+   * @param {Entity} other
+   * @returns {boolean}
+   */
+  intersects(other) {
+    return this.left  < other.right &&
+           this.right > other.left  &&
+           this.top   < other.bottom &&
+           this.bottom > other.top;
+  }
+
+  /** Per-frame logic hook; subclasses override. @param {number} dt seconds */
+  update(dt, game) {}
+
+  /** Rendering hook; subclasses override. */
+  draw(ctx) {}
+}
+
+/* =====================================================================
+ * Platform — a static, solid rectangle.
+ * Ground strips and floating platforms are both just Platforms; the
+ * `isGround` flag only changes the paint job.
+ * =================================================================== */
+class Platform extends Entity {
+  constructor(x, y, width, height, isGround = false) {
+    super(x, y, width, height);
+    this.isGround = isGround;
+  }
+
+  draw(ctx) {
+    if (this.isGround) {
+      // Ground: brown soil with a green grass lip on top.
+      ctx.fillStyle = "#9b5a25";
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+      ctx.fillStyle = "#38b764";
+      ctx.fillRect(this.x, this.y, this.width, 10);
+    } else {
+      // Floating platform: classic brick color with mortar lines.
+      ctx.fillStyle = "#b5651d";
+      ctx.fillRect(this.x, this.y, this.width, this.height);
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 2;
+      // Vertical mortar lines every 32px suggest individual bricks.
+      for (let bx = this.x; bx <= this.x + this.width; bx += 32) {
+        ctx.beginPath();
+        ctx.moveTo(bx, this.y);
+        ctx.lineTo(bx, this.y + this.height);
+        ctx.stroke();
+      }
+      ctx.strokeRect(this.x, this.y, this.width, this.height);
+    }
+  }
+}
+
+/* =====================================================================
+ * Enemy — a Goomba-like block that patrols horizontally.
+ * It walks between `minX` and `maxX`, flipping direction at the ends.
+ * Gravity is intentionally NOT applied: patrol bounds are authored to
+ * sit on platforms, which keeps the entity simple and predictable.
+ * =================================================================== */
+class Enemy extends Entity {
+  constructor(x, y, minX, maxX) {
+    super(x, y, 40, 40);
+    this.minX = minX;                 // left edge of the patrol range
+    this.maxX = maxX;                 // right edge of the patrol range
+    this.vx = CONFIG.ENEMY_SPEED;     // start walking right
+    this.alive = true;
+    this.squashTimer = 0;             // brief "flattened" corpse display
+  }
+
+  update(dt, game) {
+    if (!this.alive) {
+      // Dead enemies just count down their squash animation, then are
+      // removed by Game.update() via the `remove` flag.
+      this.squashTimer -= dt;
+      if (this.squashTimer <= 0) this.remove = true;
+      return;
+    }
+
+    // Integrate horizontal position: x' = x + vx * dt
+    this.x += this.vx * dt;
+
+    // Patrol logic: clamp to the range and reverse velocity at the ends.
+    if (this.x <= this.minX) { this.x = this.minX; this.vx =  CONFIG.ENEMY_SPEED; }
+    if (this.x + this.width >= this.maxX) {
+      this.x = this.maxX - this.width;
+      this.vx = -CONFIG.ENEMY_SPEED;
+    }
+  }
+
+  /** Called by the Player when it lands on this enemy's head. */
+  squash() {
+    this.alive = false;
+    this.squashTimer = 0.35;   // corpse lingers for 0.35s
+    this.height = 14;          // flatten the sprite...
+    this.y += 26;              // ...but keep its feet on the ground
+  }
+
+  draw(ctx) {
+    // Body
+    ctx.fillStyle = this.alive ? "#a5540a" : "#6b3a0a";
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(this.x, this.y, this.width, this.height);
+
+    if (this.alive) {
+      // Angry eyes that face the walking direction.
+      const eyeOffset = this.vx > 0 ? 6 : -6;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(this.x + 8 + eyeOffset, this.y + 10, 8, 8);
+      ctx.fillRect(this.x + 24 + eyeOffset, this.y + 10, 8, 8);
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(this.x + 11 + eyeOffset, this.y + 13, 3, 3);
+      ctx.fillRect(this.x + 27 + eyeOffset, this.y + 13, 3, 3);
+      // Feet
+      ctx.fillStyle = "#5c2e05";
+      ctx.fillRect(this.x + 2, this.y + this.height - 6, 12, 6);
+      ctx.fillRect(this.x + this.width - 14, this.y + this.height - 6, 12, 6);
+    }
+  }
+}
+
+/* =====================================================================
+ * Player — the controllable block.
+ * Owns the platformer physics: gravity integration, horizontal input,
+ * jumping (only while grounded), and axis-separated AABB collision
+ * resolution against the platform list.
+ * =================================================================== */
+class Player extends Entity {
+  constructor(x, y) {
+    super(x, y, 36, 48);
+    this.spawnX = x;
+    this.spawnY = y;
+    this.onGround = false;   // true only when standing on a solid top face
+    this.facing = 1;         // 1 = right, -1 = left (cosmetic)
+  }
+
+  update(dt, game) {
+    const input = game.input;
+
+    /* -----------------------------------------------------------
+     * 1) HORIZONTAL INPUT
+     * Velocity is set directly from input for crisp, arcade-style
+     * control (no acceleration ramp — like the original NES feel
+     * simplified). vx is in px/s, converted to px by (* dt) later.
+     * --------------------------------------------------------- */
+    this.vx = 0;
+    if (input.isDown("left"))  { this.vx = -CONFIG.MOVE_SPEED; this.facing = -1; }
+    if (input.isDown("right")) { this.vx =  CONFIG.MOVE_SPEED; this.facing =  1; }
+
+    /* -----------------------------------------------------------
+     * 2) JUMP
+     * Only allowed while grounded (no double jumps). Jumping sets a
+     * large negative (upward) velocity; gravity then produces the
+     * familiar parabolic arc: y(t) = y0 + v0*t + 0.5*g*t^2.
+     * --------------------------------------------------------- */
+    if (input.isDown("jump") && this.onGround) {
+      this.vy = CONFIG.JUMP_VELOCITY;
+      this.onGround = false;
+    }
+
+    /* -----------------------------------------------------------
+     * 3) GRAVITY (semi-implicit Euler integration)
+     * We update velocity FIRST, then position using the NEW velocity.
+     * Semi-implicit Euler is more stable than explicit Euler for
+     * game physics and is the de-facto standard:
+     *     vy += g * dt
+     *     y  += vy * dt
+     * The fall speed is clamped to MAX_FALL_SPEED so that even after
+     * a long drop the per-step displacement stays well below the
+     * thinnest platform's height, preventing "tunneling" straight
+     * through a platform between two physics steps.
+     * --------------------------------------------------------- */
+    this.vy += CONFIG.GRAVITY * dt;
+    if (this.vy > CONFIG.MAX_FALL_SPEED) this.vy = CONFIG.MAX_FALL_SPEED;
+
+    /* -----------------------------------------------------------
+     * 4) AXIS-SEPARATED MOVEMENT + COLLISION RESOLUTION
+     *
+     * THE KEY IDEA: move along ONE axis at a time and resolve
+     * collisions after each axis independently.
+     *
+     * If we moved diagonally in a single step and then found an
+     * overlap, we couldn't tell whether we hit a wall (should stop
+     * horizontal motion) or a floor (should stop vertical motion).
+     * By separating the axes, the axis responsible for the overlap
+     * is always the one we just moved along, so the correct
+     * resolution is unambiguous:
+     *
+     *   - Move X, then push the player back OUT along X only.
+     *   - Move Y, then push the player back OUT along Y only.
+     *
+     * This is why a player running along the ground doesn't snag on
+     * the seams between adjacent ground tiles: horizontal resolution
+     * never considers the floor beneath them.
+     * --------------------------------------------------------- */
+
+    // ---- X axis ----
+    this.x += this.vx * dt;
+    this.resolveHorizontal(game.platforms);
+
+    // ---- Y axis ----
+    // Assume airborne; the vertical pass proves otherwise if we land.
+    this.onGround = false;
+    this.y += this.vy * dt;
+    this.resolveVertical(game.platforms);
+
+    // Keep the player inside the level's horizontal bounds.
+    if (this.x < 0) this.x = 0;
+    if (this.right > CONFIG.LEVEL_LENGTH) this.x = CONFIG.LEVEL_LENGTH - this.width;
+
+    /* -----------------------------------------------------------
+     * 5) ENEMY INTERACTION (stomp vs. side hit) — see method docs.
+     * --------------------------------------------------------- */
+    this.handleEnemies(game);
+
+    // Falling into a pit is fatal.
+    if (this.y > CONFIG.DEATH_Y) game.gameOver("You fell into a pit!");
+  }
+
+  /**
+   * Horizontal collision resolution.
+   * Called immediately after the X-axis move, so any platform we now
+   * overlap MUST have been entered from the side we were moving toward.
+   *
+   * Resolution math: snap the player flush against the face we hit.
+   *   moving right (vx > 0): our RIGHT edge crossed the platform's
+   *     LEFT face -> set x = platform.left - width
+   *   moving left  (vx < 0): our LEFT edge crossed the platform's
+   *     RIGHT face -> set x = platform.right
+   * This removes exactly the penetration depth, no more, no less.
+   */
+  resolveHorizontal(platforms) {
+    for (const p of platforms) {
+      if (!this.intersects(p)) continue;
+      if (this.vx > 0) {
+        this.x = p.left - this.width;   // pushed out to the platform's left
+      } else if (this.vx < 0) {
+        this.x = p.right;               // pushed out to the platform's right
+      }
+      this.vx = 0; // hitting a wall kills horizontal momentum this frame
+    }
+  }
+
+  /**
+   * Vertical collision resolution.
+   * Called immediately after the Y-axis move.
+   *
+   *   falling (vy > 0): our BOTTOM crossed the platform's TOP face ->
+   *     set y = platform.top - height, zero vy, and mark onGround.
+   *     Marking onGround here is what re-enables jumping.
+   *   rising (vy < 0): our TOP crossed the platform's BOTTOM face
+   *     (a head bonk, like hitting a brick from below) ->
+   *     set y = platform.bottom and zero vy so gravity takes over.
+   */
+  resolveVertical(platforms) {
+    for (const p of platforms) {
+      if (!this.intersects(p)) continue;
+      if (this.vy > 0) {
+        this.y = p.top - this.height;   // land on top of the platform
+        this.vy = 0;
+        this.onGround = true;
+      } else if (this.vy < 0) {
+        this.y = p.bottom;              // bonk head on the underside
+        this.vy = 0;
+      }
+    }
+  }
+
+  /**
+   * STOMP vs. SIDE-HIT DISCRIMINATION
+   * ---------------------------------
+   * When the player's AABB overlaps a living enemy's AABB we must decide:
+   * did we land ON it (kill it) or run INTO it (die)?
+   *
+   * Two conditions must BOTH hold for a stomp:
+   *
+   *   (a) this.vy > 0 — the player is moving DOWNWARD. A rising or
+   *       level player can only have reached the enemy sideways.
+   *
+   *   (b) previousBottom <= enemy.top + tolerance — on the PREVIOUS
+   *       physics step the player's feet were still at or above the
+   *       enemy's head. This proves the overlap was created by
+   *       descending across the enemy's top face this step, not by
+   *       walking into its side while already at head height.
+   *       The small tolerance (~12px) forgives the fact that discrete
+   *       steps can move the feet a few pixels past the head line in
+   *       the very step that creates the overlap.
+   *
+   * If either condition fails, the contact is treated as a side/bottom
+   * hit and the game ends — exactly like touching a Goomba in SMB.
+   */
+  handleEnemies(game) {
+    // Feet position one physics step ago, reconstructed by rewinding
+    // the vertical displacement applied this step (bottom - vy*dt).
+    const previousBottom = this.bottom - this.vy * game.dt;
+
+    for (const enemy of game.enemies) {
+      if (!enemy.alive || !this.intersects(enemy)) continue;
+
+      const STOMP_TOLERANCE = 12; // px of forgiveness on condition (b)
+      const isStomp = this.vy > 0 && previousBottom <= enemy.top + STOMP_TOLERANCE;
+
+      if (isStomp) {
+        enemy.squash();
+        game.score += 100;
+        this.vy = CONFIG.STOMP_BOUNCE;  // hop off the corpse, Mario-style
+        this.onGround = false;
+      } else {
+        game.gameOver("An enemy got you!");
+        return;
+      }
+    }
+  }
+
+  draw(ctx) {
+    // Body — the iconic red-overalls block.
+    ctx.fillStyle = "#e43b44";
+    ctx.fillRect(this.x, this.y, this.width, this.height);
+    // Blue "overalls" on the lower half.
+    ctx.fillStyle = "#3b5dc9";
+    ctx.fillRect(this.x, this.y + this.height * 0.55, this.width, this.height * 0.45);
+    // Cap brim
+    ctx.fillStyle = "#a52833";
+    ctx.fillRect(this.x, this.y, this.width, 8);
+    // Single eye looking in the facing direction.
+    ctx.fillStyle = "#ffffff";
+    const eyeX = this.facing === 1 ? this.x + this.width - 14 : this.x + 6;
+    ctx.fillRect(eyeX, this.y + 12, 8, 8);
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(eyeX + (this.facing === 1 ? 4 : 1), this.y + 15, 3, 3);
+    // Outline
+    ctx.strokeStyle = "rgba(0,0,0,0.4)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(this.x, this.y, this.width, this.height);
+  }
+}
+
+/* =====================================================================
+ * Camera — a horizontally scrolling viewport.
+ * The world is wider than the screen; before drawing, the Game
+ * translates the canvas by -camera.x so world coordinates map onto
+ * screen coordinates. The camera chases the player but is clamped to
+ * the level bounds so we never show the void past either edge.
+ * =================================================================== */
+class Camera {
+  constructor() { this.x = 0; }
+
+  update(player) {
+    // Keep the player roughly 1/3 from the left edge (shows more of
+    // what's ahead, like classic side-scrollers).
+    const target = player.x - CONFIG.WIDTH / 3;
+    // Smooth follow: move 10% of the remaining distance each frame
+    // (simple exponential smoothing) to avoid jarring snaps.
+    this.x += (target - this.x) * 0.1;
+    // Clamp so the view never leaves the level.
+    this.x = Math.max(0, Math.min(this.x, CONFIG.LEVEL_LENGTH - CONFIG.WIDTH));
+  }
+}
+
+/* =====================================================================
+ * Game — top-level orchestrator.
+ * Owns the entity lists, the fixed-timestep loop, win/lose state,
+ * scoring, and all rendering.
+ * =================================================================== */
+class Game {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext("2d");
+    this.input = new InputHandler();
+    this.camera = new Camera();
+    this.dt = CONFIG.TIMESTEP;   // exposed so entities can rewind a step
+    this.accumulator = 0;        // unsimulated time bank (see loop notes)
+    this.lastTime = 0;
+    this.state = "playing";      // "playing" | "gameover" | "win"
+    this.message = "";
+    this.score = 0;
+
+    this.buildLevel();
+
+    // Restart on jump-press / tap / click while in an end state.
+    window.addEventListener("keydown", (e) => {
+      if (this.state !== "playing" && (e.code === "Space" || e.code === "Enter")) this.reset();
+    });
+    this.canvas.addEventListener("pointerdown", () => {
+      if (this.state !== "playing") this.reset();
+    });
+
+    // Kick off the loop.
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  /** Construct all platforms, enemies, and the player for the level. */
+  buildLevel() {
+    const G = 480; // y of the main ground surface
+
+    this.platforms = [
+      // Ground strips with pits between them (fall in = death).
+      new Platform(0,    G, 900, 60, true),
+      new Platform(1020, G, 700, 60, true),
+      new Platform(1860, G, 640, 60, true),
+      new Platform(2620, G, CONFIG.LEVEL_LENGTH - 2620, 60, true),
+
+      // Floating brick platforms.
+      new Platform(380,  350, 160, 32),
+      new Platform(640,  260, 160, 32),
+      new Platform(920,  360, 128, 32),   // helps clear the first pit
+      new Platform(1250, 340, 192, 32),
+      new Platform(1560, 250, 128, 32),
+      new Platform(1790, 350, 96,  32),   // helps clear the second pit
+      new Platform(2150, 330, 160, 32),
+      new Platform(2450, 240, 128, 32),
+      new Platform(2900, 340, 160, 32)
+    ];
+
+    this.enemies = [
+      // Ground patrollers (y = G - enemy height = 440).
+      new Enemy(500,  G - 40, 420,  860),
+      new Enemy(1200, G - 40, 1040, 1450),
+      new Enemy(1500, G - 40, 1460, 1700),
+      new Enemy(2000, G - 40, 1880, 2200),
+      // One patrolling on top of a floating platform.
+      new Enemy(1270, 340 - 40, 1250, 1442),
+      new Enemy(2700, G - 40, 2640, 3000)
+    ];
+
+    // Goal flag near the end of the level.
+    this.goal = new Entity(CONFIG.LEVEL_LENGTH - 120, G - 200, 12, 200);
+
+    this.player = new Player(60, G - 48);
+  }
+
+  /** Full restart: rebuild the level and clear state. */
+  reset() {
+    this.buildLevel();
+    this.score = 0;
+    this.state = "playing";
+    this.message = "";
+    this.camera.x = 0;
+  }
+
+  /** Transition to the losing end state. */
+  gameOver(reason) {
+    this.state = "gameover";
+    this.message = reason;
+  }
+
+  /* -----------------------------------------------------------
+   * MAIN LOOP — fixed-timestep physics inside requestAnimationFrame.
+   *
+   * requestAnimationFrame fires at the display's refresh rate
+   * (60Hz, 120Hz, 144Hz...), so the frame delta varies per machine.
+   * Naively using that delta makes physics behave differently at
+   * different refresh rates and explodes after a background-tab hitch.
+   *
+   * Solution: accumulate real elapsed time and consume it in fixed
+   * TIMESTEP-sized chunks. Physics therefore always integrates with
+   * the exact same dt (deterministic), while rendering still happens
+   * once per animation frame. The accumulator is clamped to 100ms so
+   * a long tab-switch pause can't cause a huge catch-up burst.
+   * --------------------------------------------------------- */
+  loop(timestamp) {
+    if (!this.lastTime) this.lastTime = timestamp;
+    let frameTime = (timestamp - this.lastTime) / 1000; // ms -> seconds
+    this.lastTime = timestamp;
+    if (frameTime > 0.1) frameTime = 0.1; // clamp huge pauses
+
+    this.accumulator += frameTime;
+    while (this.accumulator >= CONFIG.TIMESTEP) {
+      if (this.state === "playing") this.update(CONFIG.TIMESTEP);
+      this.accumulator -= CONFIG.TIMESTEP;
+    }
+
+    this.draw();
+    requestAnimationFrame((t) => this.loop(t));
+  }
+
+  /** One fixed physics step. @param {number} dt seconds (always TIMESTEP) */
+  update(dt) {
+    this.dt = dt;
+    this.player.update(dt, this);
+    for (const enemy of this.enemies) enemy.update(dt, this);
+    // Sweep out squashed enemies whose corpse timer expired.
+    this.enemies = this.enemies.filter((e) => !e.remove);
+    this.camera.update(this.player);
+
+    // Win check: touching the flag pole ends the level.
+    if (this.player.intersects(this.goal)) {
+      this.state = "win";
+      this.score += 500;
+    }
+  }
+
+  /* ---------------- RENDERING ---------------- */
+
+  draw() {
+    const ctx = this.ctx;
+
+    // Sky
+    ctx.fillStyle = "#5c94fc";
+    ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+    ctx.save();
+    // World-to-screen transform: everything drawn after this translate
+    // is in world coordinates, shifted left by the camera position.
+    ctx.translate(-Math.round(this.camera.x), 0);
+
+    this.drawScenery(ctx);
+    for (const p of this.platforms) p.draw(ctx);
+    this.drawGoal(ctx);
+    for (const e of this.enemies) e.draw(ctx);
+    this.player.draw(ctx);
+
+    ctx.restore();
+
+    this.drawHUD(ctx);
+    if (this.state !== "playing") this.drawOverlay(ctx);
+  }
+
+  /** Decorative clouds and hills (parallax-free, purely cosmetic). */
+  drawScenery(ctx) {
+    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    for (let i = 0; i < 8; i++) {
+      const cx = 200 + i * 420;
+      const cy = 70 + (i % 3) * 40;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 24, 0, Math.PI * 2);
+      ctx.arc(cx + 26, cy - 8, 20, 0, Math.PI * 2);
+      ctx.arc(cx + 52, cy, 24, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "#2e8b57";
+    for (let i = 0; i < 6; i++) {
+      const hx = 100 + i * 560;
+      ctx.beginPath();
+      ctx.arc(hx, 480, 90, Math.PI, 0);
+      ctx.fill();
+    }
+  }
+
+  /** The end-of-level flag pole. */
+  drawGoal(ctx) {
+    const g = this.goal;
+    ctx.fillStyle = "#c0c0c0";
+    ctx.fillRect(g.x, g.y, g.width, g.height);          // pole
+    ctx.fillStyle = "#38b764";
+    ctx.beginPath();                                     // triangular flag
+    ctx.moveTo(g.x, g.y);
+    ctx.lineTo(g.x - 44, g.y + 16);
+    ctx.lineTo(g.x, g.y + 32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#ffd700";
+    ctx.beginPath();                                     // gold ball on top
+    ctx.arc(g.x + g.width / 2, g.y - 6, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /** Score + controls hint, drawn in screen space (after ctx.restore). */
+  drawHUD(ctx) {
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "bold 22px 'Courier New', monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("SCORE  " + String(this.score).padStart(6, "0"), 20, 34);
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText("← → move   SPACE jump   stomp enemies!", 20, 58);
+  }
+
+  /** Semi-transparent end-state screen (Game Over or You Win). */
+  drawOverlay(ctx) {
+    ctx.fillStyle = "rgba(0,0,0,0.65)";
+    ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+    ctx.textAlign = "center";
+    ctx.fillStyle = this.state === "win" ? "#38b764" : "#e43b44";
+    ctx.font = "bold 56px 'Courier New', monospace";
+    ctx.fillText(this.state === "win" ? "YOU WIN!" : "GAME OVER",
+                 CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2 - 30);
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "22px 'Courier New', monospace";
+    if (this.message) ctx.fillText(this.message, CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2 + 14);
+    ctx.fillText("Final score: " + this.score, CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2 + 48);
+    ctx.font = "18px 'Courier New', monospace";
+    ctx.fillText("Press SPACE or tap to play again", CONFIG.WIDTH / 2, CONFIG.HEIGHT / 2 + 90);
+  }
+}
+
+/* Boot the game once the DOM is ready. The instance is exposed on
+ * `window` so it can be inspected from the devtools console. */
+window.addEventListener("load", () => {
+  window.game = new Game(document.getElementById("game"));
+});
+</script>
+</body>
+</html>
