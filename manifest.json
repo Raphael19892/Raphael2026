@@ -1,38 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Content Guardian - חוסם תוכן וצניעות",
+  "name": "Content Guardian - חוסם X ותוכן לא צנוע",
   "version": "1.0.0",
-  "description": "חוסם באופן הרמטי את X (טוויטר) ואתרי תוכן לא צנוע, עם אימות מול חשבון Google המחובר.",
+  "description": "חוסם באופן הרמטי את X (טוויטר) ואתרי תוכן לא צנוע. טוענים וזה עובד מיד.",
   "minimum_chrome_version": "88",
 
   "permissions": [
-    "declarativeNetRequest",
-    "declarativeNetRequestFeedback",
-    "identity",
-    "identity.email",
-    "storage"
+    "declarativeNetRequest"
   ],
-
-  "host_permissions": [
-    "<all_urls>"
-  ],
-
-  "oauth2": {
-    "client_id": "REPLACE_WITH_YOUR_OAUTH_CLIENT_ID.apps.googleusercontent.com",
-    "scopes": [
-      "https://www.googleapis.com/auth/userinfo.email",
-      "https://www.googleapis.com/auth/userinfo.profile"
-    ]
-  },
-
-  "background": {
-    "service_worker": "background.js"
-  },
-
-  "action": {
-    "default_title": "Content Guardian",
-    "default_popup": "popup.html"
-  },
 
   "declarative_net_request": {
     "rule_resources": [
