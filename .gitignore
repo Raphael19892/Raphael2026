@@ -2,6 +2,15 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Native build outputs (the native projects themselves ARE committed)
+android/.gradle
+android/app/build
+android/build
+android/local.properties
+ios/App/Pods
+ios/App/build
+DerivedData
 .DS_Store
 .vite
 npm-debug.log*
