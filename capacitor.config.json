@@ -1,0 +1,13 @@
+{
+  "appId": "com.balanceboard.app",
+  "appName": "BalanceBoard",
+  "webDir": "dist",
+  "backgroundColor": "#f1f5f9",
+  "android": {
+    "backgroundColor": "#f1f5f9"
+  },
+  "ios": {
+    "backgroundColor": "#f1f5f9",
+    "contentInset": "always"
+  }
+}

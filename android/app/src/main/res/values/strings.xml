@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">BalanceBoard</string>
+    <string name="title_activity_main">BalanceBoard</string>
+    <string name="package_name">com.balanceboard.app</string>
+    <string name="custom_url_scheme">com.balanceboard.app</string>
+</resources>
