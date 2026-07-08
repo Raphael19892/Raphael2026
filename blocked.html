@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>התוכן נחסם — Content Guardian</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Segoe UI", "Assistant", Arial, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #4c1d95 100%);
+      color: #fff;
+      padding: 24px;
+    }
+    .card {
+      background: rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 20px;
+      max-width: 520px;
+      width: 100%;
+      padding: 48px 36px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    }
+    .shield {
+      font-size: 72px;
+      line-height: 1;
+      margin-bottom: 16px;
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    p {
+      font-size: 17px;
+      line-height: 1.7;
+      color: #e0e7ff;
+      margin-bottom: 10px;
+    }
+    .reason {
+      display: inline-block;
+      margin-top: 18px;
+      padding: 8px 18px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .divider {
+      height: 1px;
+      background: rgba(255, 255, 255, 0.15);
+      margin: 28px 0 20px;
+    }
+    .note {
+      font-size: 13px;
+      color: #c7d2fe;
+      opacity: 0.85;
+    }
+    .btn {
+      margin-top: 24px;
+      display: inline-block;
+      padding: 12px 28px;
+      background: #fff;
+      color: #312e81;
+      font-weight: 700;
+      font-size: 15px;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="shield">🛡️</div>
+    <h1>הגישה נחסמה</h1>
+    <p>אתר זה נחסם על ידי <strong>Content Guardian</strong> מטעמי צניעות ושמירה על סביבת גלישה נקייה.</p>
+    <p class="note">אם הגעת לכאן בטעות, ניתן לחזור לעמוד הקודם.</p>
+
+    <div class="reason" id="reason">תוכן חסום</div>
+
+    <div class="divider"></div>
+    <p class="note">"שמירת עיניים היא שמירת הלב." — הרגל טוב מתחיל בבחירה קטנה אחת.</p>
+
+    <a class="btn" href="#" id="back">חזרה אחורה</a>
+  </div>
+
+  <script src="blocked.js"></script>
+</body>
+</html>
