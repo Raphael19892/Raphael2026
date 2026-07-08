@@ -1,0 +1,94 @@
+[
+  {
+    "id": 1,
+    "priority": 100,
+    "action": {
+      "type": "redirect",
+      "redirect": { "extensionPath": "/blocked.html?src=twitter" }
+    },
+    "condition": {
+      "requestDomains": ["twitter.com", "x.com", "twimg.com", "t.co"],
+      "resourceTypes": ["main_frame", "sub_frame"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 100,
+    "action": { "type": "block" },
+    "condition": {
+      "requestDomains": ["twitter.com", "x.com", "twimg.com", "t.co"],
+      "resourceTypes": [
+        "script",
+        "image",
+        "media",
+        "xmlhttprequest",
+        "websocket",
+        "font",
+        "stylesheet",
+        "object",
+        "ping",
+        "other"
+      ]
+    }
+  },
+
+  {
+    "id": 10,
+    "priority": 90,
+    "action": {
+      "type": "redirect",
+      "redirect": { "extensionPath": "/blocked.html?src=adult" }
+    },
+    "condition": {
+      "requestDomains": [
+        "pornhub.com",
+        "xvideos.com",
+        "xnxx.com",
+        "xhamster.com",
+        "redtube.com",
+        "youporn.com",
+        "spankbang.com",
+        "onlyfans.com",
+        "chaturbate.com",
+        "livejasmin.com",
+        "brazzers.com",
+        "bangbros.com",
+        "adultfriendfinder.com",
+        "stripchat.com",
+        "cam4.com",
+        "myfreecams.com",
+        "tube8.com",
+        "porn.com",
+        "eporner.com",
+        "hentaihaven.xxx"
+      ],
+      "resourceTypes": ["main_frame", "sub_frame"]
+    }
+  },
+
+  {
+    "id": 20,
+    "priority": 80,
+    "action": {
+      "type": "redirect",
+      "redirect": { "extensionPath": "/blocked.html?src=adult-tld" }
+    },
+    "condition": {
+      "regexFilter": "^https?://([a-z0-9-]+\\.)*[a-z0-9-]+\\.(xxx|porn|adult|sex|sexy|cam|tube|xxxx)(/|$|\\?)",
+      "resourceTypes": ["main_frame", "sub_frame"]
+    }
+  },
+
+  {
+    "id": 21,
+    "priority": 80,
+    "action": {
+      "type": "redirect",
+      "redirect": { "extensionPath": "/blocked.html?src=adult-keyword" }
+    },
+    "condition": {
+      "regexFilter": "^https?://([a-z0-9-]+\\.)*(porn|xvideos|xhamster|hentai|xxx|camgirl|escort|nsfw)[a-z0-9-]*\\.[a-z]+",
+      "resourceTypes": ["main_frame", "sub_frame"]
+    }
+  }
+]

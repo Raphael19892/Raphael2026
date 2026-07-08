@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Content Guardian - חוסם X ותוכן לא צנוע",
+  "version": "1.0.0",
+  "description": "חוסם באופן הרמטי את X (טוויטר) ואתרי תוכן לא צנוע. טוענים וזה עובד מיד.",
+  "minimum_chrome_version": "88",
+
+  "permissions": [
+    "declarativeNetRequest"
+  ],
+
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "blocklist",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": ["blocked.html"],
+      "matches": ["<all_urls>"]
+    }
+  ]
+}
