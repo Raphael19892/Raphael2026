@@ -86,8 +86,10 @@ function getOAuthEmail(interactive = false) {
 }
 
 function isEmailAuthorized(email) {
+  // אין רשימת הגבלה => כל אחד מורשה, גם דפדפנים ללא Chrome Identity API
+  // (למשל Kiwi Browser באנדרואיד) — כך החסימה פועלת גם בנייד ללא אימות Google.
+  if (AUTHORIZED_EMAILS.length === 0) return true;
   if (!email) return false;
-  if (AUTHORIZED_EMAILS.length === 0) return true; // כל משתמש מחובר מורשה
   return AUTHORIZED_EMAILS.map((e) => e.toLowerCase()).includes(
     email.toLowerCase()
   );
