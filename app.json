@@ -1,0 +1,21 @@
+{
+  "expo": {
+    "name": "FiberTrack — יומן סיבים חכם",
+    "slug": "fibertrack",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F4F8F4"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "package": "com.fibertrack.app"
+    },
+    "extra": {
+      "eas": {}
+    }
+  }
+}
