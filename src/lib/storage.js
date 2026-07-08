@@ -3,7 +3,7 @@
 // storage API, so it can be swapped for an Express/SQLite backend later without
 // changing the reducer or UI (same load()/save() contract).
 
-const STORAGE_KEY = 'balanceboard.v1';
+const STORAGE_KEY = 'balanceboard.v2';
 
 export function load() {
   try {

@@ -62,23 +62,23 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatTile
           icon={ListChecks}
-          label="Completion"
+          label="Tasks done"
           value={`${rate}%`}
-          sub={`${doneCount}/${activeBlocks.length} tasks done`}
+          sub={`${doneCount} of ${activeBlocks.length} finished`}
           tone="emerald"
         />
         <StatTile
           icon={TrendingUp}
-          label="Earned credit"
+          label="Screen time earned"
           value={formatMinutes(ledger.earnedCredit)}
-          sub="from chores & activity"
+          sub="from chores & play"
           tone="amber"
         />
         <StatTile
           icon={Clock}
-          label="Screen used"
+          label="Screen time used"
           value={formatMinutes(ledger.spentMinutes)}
-          sub="marked complete"
+          sub="so far"
           tone="violet"
         />
         <StatTile
@@ -102,21 +102,21 @@ export default function Dashboard() {
             </h3>
             <div className="space-y-4">
               <GoalBar
-                label="Physical activity"
+                label="⚽ Active play"
                 categoryId="activity"
                 value={goals.activity.minutes}
                 target={goals.activity.min}
                 kind="min"
               />
               <GoalBar
-                label="Chores"
+                label="🧹 Chores"
                 categoryId="chore"
                 value={goals.chores.minutes}
                 target={goals.chores.min}
                 kind="min"
               />
               <GoalBar
-                label="Screen time"
+                label="🎮 Screen time"
                 categoryId="screen"
                 value={goals.screen.minutes}
                 target={goals.screen.max}
@@ -134,7 +134,7 @@ export default function Dashboard() {
         {/* Middle: approvals queue */}
         <div className="bg-white rounded-2xl border border-slate-200 p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-slate-900">Approve completed tasks</h3>
+            <h3 className="font-bold text-slate-900">Finished tasks to say OK to</h3>
             {pendingApprovals.length > 0 && (
               <span className="text-xs font-semibold bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full">
                 {pendingApprovals.length} waiting

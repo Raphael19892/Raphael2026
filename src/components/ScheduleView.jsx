@@ -73,7 +73,7 @@ export default function ScheduleView() {
             {profile.name}'s week
           </h1>
           <p className="text-sm text-slate-500">
-            Drag tasks to reschedule · click to edit · tap the circle to complete
+            Tap the circle when you finish something ✓ · drag to move it · press + to add
           </p>
         </div>
         <button
@@ -281,6 +281,9 @@ function BlockCard({ block, allBlocks, earnRate, onEdit, dispatch, overlay }) {
               block.completed ? 'line-through' : ''
             }`}
           >
+            <span aria-hidden className="mr-0.5">
+              {cat.emoji}
+            </span>
             {block.title}
           </div>
         </div>
@@ -306,14 +309,15 @@ function BlockCard({ block, allBlocks, earnRate, onEdit, dispatch, overlay }) {
 
 function Legend() {
   return (
-    <div className="flex items-center gap-4 mb-3 text-xs text-slate-500 flex-wrap">
+    <div className="flex items-center gap-3 mb-3 flex-wrap">
       {Object.values(CATEGORIES).map((c) => (
-        <span key={c.id} className="flex items-center gap-1.5">
-          <span className={`w-2.5 h-2.5 rounded-full ${c.classes.dot}`} />
+        <span
+          key={c.id}
+          className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border ${c.classes.chip}`}
+        >
+          <span aria-hidden>{c.emoji}</span>
           {c.label}
-          <span className="text-slate-300">
-            {c.effect === 'earn' ? '(+credit)' : c.effect === 'spend' ? '(−credit)' : ''}
-          </span>
+          {c.kidNote && <span className="opacity-70">· {c.kidNote}</span>}
         </span>
       ))}
     </div>

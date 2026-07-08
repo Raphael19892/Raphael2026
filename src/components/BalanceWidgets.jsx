@@ -17,16 +17,23 @@ export function WalletCard({ ledger }) {
     >
       <div className="flex items-center gap-2 text-white/80 text-sm font-medium">
         <Wallet size={16} />
-        Screen-time wallet
+        🎮 Screen time you can use
       </div>
       <div className="mt-2 flex items-end gap-2">
-        <span className="text-4xl font-extrabold tracking-tight">
-          {formatMinutes(balance)}
+        <span className="text-5xl font-extrabold tracking-tight">
+          {formatMinutes(Math.max(0, balance))}
         </span>
-        <span className="text-white/70 text-sm mb-1">
-          {overdrawn ? 'overdrawn' : 'available'}
+        <span className="text-white/70 text-sm mb-1.5">
+          {overdrawn ? 'all used up' : 'ready to use'}
         </span>
       </div>
+      <p className="mt-1 text-sm text-white/85">
+        {overdrawn
+          ? 'Do a chore or play outside to earn more!'
+          : balance === 0
+          ? 'Earn some by doing chores or playing outside!'
+          : 'Great job earning this! 🎉'}
+      </p>
 
       <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
         <div className="bg-white/15 rounded-xl px-3 py-2">
@@ -37,7 +44,7 @@ export function WalletCard({ ledger }) {
         </div>
         <div className="bg-white/15 rounded-xl px-3 py-2">
           <div className="flex items-center gap-1 text-white/70 text-xs">
-            <TrendingDown size={13} /> Spent
+            <TrendingDown size={13} /> Used
           </div>
           <div className="font-semibold">{formatMinutes(spentMinutes)}</div>
         </div>
@@ -46,7 +53,7 @@ export function WalletCard({ ledger }) {
       {pendingEarnMinutes > 0 && (
         <div className="mt-2 flex items-center gap-1.5 text-xs text-white/80 bg-white/10 rounded-lg px-2.5 py-1.5">
           <Clock size={13} />
-          {formatMinutes(pendingEarnMinutes)} awaiting parent approval
+          {formatMinutes(pendingEarnMinutes)} waiting for a grown-up to say OK
         </div>
       )}
     </div>

@@ -8,6 +8,9 @@ export const CATEGORIES = {
     label: 'Screen Time',
     // Screen time spends the earned balance.
     effect: 'spend',
+    // Kid-friendly one-liner explaining what this does to screen time.
+    kidNote: 'Uses screen time',
+    emoji: '🎮',
     icon: Gamepad2,
     color: 'violet',
     // tailwind class groups (kept explicit so the JIT compiler keeps them)
@@ -20,8 +23,10 @@ export const CATEGORIES = {
   },
   activity: {
     id: 'activity',
-    label: 'Physical Activity',
+    label: 'Active Play',
     effect: 'earn',
+    kidNote: 'Earns screen time',
+    emoji: '⚽',
     icon: Dumbbell,
     color: 'emerald',
     classes: {
@@ -35,6 +40,8 @@ export const CATEGORIES = {
     id: 'chore',
     label: 'Chore',
     effect: 'earn',
+    kidNote: 'Earns screen time',
+    emoji: '🧹',
     icon: SprayCan,
     color: 'amber',
     classes: {
@@ -49,6 +56,8 @@ export const CATEGORIES = {
     label: 'Homework',
     // Homework is neutral by default but still tracked for completion rate.
     effect: 'neutral',
+    kidNote: '',
+    emoji: '📚',
     icon: BookOpen,
     color: 'sky',
     classes: {
