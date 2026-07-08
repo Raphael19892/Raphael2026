@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>מעקב סיבים תזונתיים</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --bg-soft: #1e293b;
+      --card: #1e293b;
+      --card-border: #334155;
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #22c55e;
+      --accent-soft: #16a34a;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+      --info: #38bdf8;
+      --track: #334155;
+      --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: "Segoe UI", "Assistant", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(1200px 600px at 100% -10%, #14532d33, transparent),
+                  radial-gradient(1000px 500px at -10% 110%, #0ea5e922, transparent),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+      line-height: 1.6;
+    }
+
+    .app {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 28px;
+    }
+
+    header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      margin-top: 6px;
+      font-size: 0.95rem;
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), #172033);
+      border: 1px solid var(--card-border);
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+    }
+
+    /* Progress */
+    .progress-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 14px;
+    }
+
+    .progress-head .label {
+      font-weight: 700;
+      font-size: 1.05rem;
+    }
+
+    .progress-head .amount {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+    }
+
+    .progress-head .amount b {
+      color: var(--accent);
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    .bar {
+      position: relative;
+      height: 26px;
+      background: var(--track);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      width: 0%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #16a34a, #22c55e, #4ade80);
+      transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1), background 0.4s ease;
+      box-shadow: 0 0 14px #22c55e88;
+    }
+
+    .bar-fill.over {
+      background: linear-gradient(90deg, #d97706, #f59e0b, #fbbf24);
+      box-shadow: 0 0 14px #f59e0b88;
+    }
+
+    .percent {
+      text-align: center;
+      margin-top: 10px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    .percent b { color: var(--text); }
+
+    /* Add food row */
+    .add-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    select, .btn {
+      font-family: inherit;
+      font-size: 1rem;
+      border-radius: 12px;
+      padding: 12px 16px;
+      border: 1px solid var(--card-border);
+    }
+
+    select {
+      flex: 1;
+      min-width: 200px;
+      background: var(--bg-soft);
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    select:focus { outline: 2px solid var(--accent); }
+
+    .btn {
+      background: var(--accent);
+      color: #052e16;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      transition: transform 0.1s ease, filter 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover { filter: brightness(1.08); }
+    .btn:active { transform: scale(0.96); }
+
+    .section-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      font-weight: 700;
+    }
+
+    /* Consumed list */
+    .log-list { list-style: none; }
+
+    .log-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--bg-soft);
+      margin-bottom: 8px;
+      animation: pop 0.3s ease;
+    }
+
+    @keyframes pop {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .log-item .info { display: flex; align-items: center; gap: 10px; }
+    .log-item .emoji { font-size: 1.4rem; }
+    .log-item .name { font-weight: 600; }
+    .log-item .grams { color: var(--accent); font-weight: 700; }
+
+    .remove {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.2rem;
+      padding: 4px 8px;
+      border-radius: 8px;
+      transition: color 0.2s, background 0.2s;
+    }
+    .remove:hover { color: var(--danger); background: #ef444422; }
+
+    .empty {
+      text-align: center;
+      color: var(--text-muted);
+      padding: 18px;
+      font-size: 0.95rem;
+    }
+
+    .reset-link {
+      display: block;
+      margin: 6px auto 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 0.85rem;
+      text-decoration: underline;
+    }
+    .reset-link:hover { color: var(--danger); }
+
+    /* Alerts */
+    .alert {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid;
+      font-size: 0.95rem;
+      animation: pop 0.3s ease;
+    }
+    .alert .icon { font-size: 1.4rem; line-height: 1.4; }
+    .alert.info    { background: #38bdf815; border-color: #38bdf855; }
+    .alert.success { background: #22c55e15; border-color: #22c55e55; }
+    .alert.warn    { background: #f59e0b15; border-color: #f59e0b55; }
+    .alert .title { font-weight: 700; display: block; margin-bottom: 2px; }
+    .alert .body { color: var(--text-muted); }
+
+    footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.8rem;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>🌾 מעקב סיבים תזונתיים</h1>
+      <p>עקבו אחר צריכת הסיבים היומית שלכם והגיעו ליעד המומלץ</p>
+    </header>
+
+    <!-- Progress card -->
+    <section class="card">
+      <div class="progress-head">
+        <span class="label">התקדמות יומית</span>
+        <span class="amount"><b id="currentGrams">0</b> / <span id="goalGrams">30</span> גרם</span>
+      </div>
+      <div class="bar">
+        <div class="bar-fill" id="barFill"></div>
+      </div>
+      <div class="percent"><b id="percentText">0%</b> מהיעד היומי</div>
+    </section>
+
+    <!-- Add food card -->
+    <section class="card">
+      <div class="section-title">הוספת מזון עשיר בסיבים</div>
+      <div class="add-row">
+        <select id="foodSelect"></select>
+        <button class="btn" id="addBtn">➕ הוסף</button>
+      </div>
+    </section>
+
+    <!-- Alerts card -->
+    <section class="card">
+      <div class="section-title">💡 התראות בריאות</div>
+      <div id="alertsArea"></div>
+    </section>
+
+    <!-- Consumed list card -->
+    <section class="card">
+      <div class="section-title">מה אכלתי היום</div>
+      <ul class="log-list" id="logList"></ul>
+      <button class="reset-link" id="resetBtn">איפוס היום</button>
+    </section>
+
+    <footer>הנתונים נשמרים מקומית בדפדפן שלכם · יעד מומלץ: 25–30 גרם ליום</footer>
+  </div>
+
+  <script>
+    // ---- Food database (grams of fiber per typical serving) ----
+    const FOODS = [
+      { id: "oats",    name: "שיבולת שועל (חצי כוס יבש)", fiber: 4,   emoji: "🥣" },
+      { id: "lentils", name: "עדשים מבושלות (כוס)",       fiber: 15.6, emoji: "🍲" },
+      { id: "chia",    name: "זרעי צ'יה (כף)",            fiber: 5,   emoji: "🌱" },
+      { id: "beans",   name: "שעועית שחורה (כוס)",         fiber: 15,  emoji: "🫘" },
+      { id: "avocado", name: "אבוקדו (חצי)",              fiber: 5,   emoji: "🥑" },
+      { id: "apple",   name: "תפוח עם קליפה",             fiber: 4.4, emoji: "🍎" },
+      { id: "broccoli",name: "ברוקולי מבושל (כוס)",        fiber: 5.1, emoji: "🥦" },
+      { id: "almonds", name: "שקדים (חופן, 28 גרם)",       fiber: 3.5, emoji: "🌰" },
+      { id: "pear",    name: "אגס עם קליפה",              fiber: 5.5, emoji: "🍐" },
+      { id: "quinoa",  name: "קינואה מבושלת (כוס)",        fiber: 5.2, emoji: "🍚" },
+      { id: "berries", name: "פטל / אוכמניות (כוס)",       fiber: 8,   emoji: "🫐" },
+      { id: "flax",    name: "זרעי פשתן טחונים (כף)",       fiber: 2,   emoji: "🌾" },
+    ];
+
+    const GOAL = 30;
+    const STORAGE_KEY = "fiberTracker.v1";
+
+    // ---- State (persisted per calendar day) ----
+    function todayKey() {
+      return new Date().toISOString().slice(0, 10);
+    }
+
+    function loadState() {
+      try {
+        const raw = JSON.parse(localStorage.getItem(STORAGE_KEY));
+        if (raw && raw.date === todayKey() && Array.isArray(raw.log)) return raw.log;
+      } catch (e) { /* ignore */ }
+      return [];
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ date: todayKey(), log: log }));
+    }
+
+    let log = loadState();
+
+    // ---- DOM refs ----
+    const foodSelect  = document.getElementById("foodSelect");
+    const addBtn      = document.getElementById("addBtn");
+    const barFill     = document.getElementById("barFill");
+    const currentEl   = document.getElementById("currentGrams");
+    const percentEl   = document.getElementById("percentText");
+    const logListEl   = document.getElementById("logList");
+    const alertsArea  = document.getElementById("alertsArea");
+    const resetBtn    = document.getElementById("resetBtn");
+    document.getElementById("goalGrams").textContent = GOAL;
+
+    // ---- Populate dropdown ----
+    FOODS.forEach(f => {
+      const opt = document.createElement("option");
+      opt.value = f.id;
+      opt.textContent = `${f.emoji} ${f.name} · ${f.fiber} ג׳ סיבים`;
+      foodSelect.appendChild(opt);
+    });
+
+    // ---- Core actions ----
+    function total() {
+      return log.reduce((sum, item) => sum + item.fiber, 0);
+    }
+
+    function addFood() {
+      const food = FOODS.find(f => f.id === foodSelect.value);
+      if (!food) return;
+      log.push({ ...food, addedAt: Date.now() });
+      saveState();
+      render();
+    }
+
+    function removeItem(index) {
+      log.splice(index, 1);
+      saveState();
+      render();
+    }
+
+    function resetDay() {
+      if (log.length && !confirm("לאפס את כל המזונות שנרשמו היום?")) return;
+      log = [];
+      saveState();
+      render();
+    }
+
+    // ---- Alerts logic (research-informed messaging) ----
+    function buildAlerts() {
+      const grams = total();
+      const pct = grams / GOAL;
+      const alerts = [];
+
+      // Rapid-increase warning: a lot of fiber added within a short window.
+      const now = Date.now();
+      const recent = log.filter(i => now - i.addedAt < 60 * 60 * 1000);
+      const recentGrams = recent.reduce((s, i) => s + i.fiber, 0);
+      if (recentGrams >= 20) {
+        alerts.push({
+          type: "warn",
+          icon: "⚠️",
+          title: "עלייה מהירה בצריכת הסיבים",
+          body: "הוספתם מעל 20 גרם סיבים בזמן קצר. מומלץ להגדיל את צריכת הסיבים בהדרגה ולשתות הרבה מים כדי להימנע מנפיחות, גזים ואי-נוחות בקיבה."
+        });
+      }
+
+      // Progress-based encouragement
+      if (grams === 0) {
+        alerts.push({
+          type: "info", icon: "👋",
+          title: "בואו נתחיל!",
+          body: "בחרו מזון עשיר בסיבים מהרשימה כדי להתחיל לעקוב. סיבים תומכים בבריאות המעי, מייצבים סוכר בדם ותורמים לתחושת שובע."
+        });
+      } else if (pct < 0.5) {
+        alerts.push({
+          type: "info", icon: "🚶",
+          title: "בדרך הנכונה",
+          body: `צברתם ${grams.toFixed(1)} גרם. המשיכו להוסיף ירקות, קטניות ודגנים מלאים לאורך היום.`
+        });
+      } else if (pct < 1) {
+        alerts.push({
+          type: "success", icon: "🔥",
+          title: "מתקרבים ליעד!",
+          body: `נותרו רק ${(GOAL - grams).toFixed(1)} גרם ליעד היומי. מחקרים קושרים צריכת סיבים מספקת להפחתת סיכון למחלות לב ולבריאות מערכת העיכול.`
+        });
+      } else if (pct >= 1 && grams <= GOAL + 20) {
+        alerts.push({
+          type: "success", icon: "🎉",
+          title: "כל הכבוד — הגעתם ליעד!",
+          body: "הגעתם ל-30 גרם סיבים היום. שמרו על צריכה עקבית מדי יום והקפידו על שתייה מרובה כדי למקסם את היתרונות."
+        });
+      } else {
+        alerts.push({
+          type: "warn", icon: "🚱",
+          title: "צריכה גבוהה מאוד",
+          body: "עברתם משמעותית את היעד. צריכת סיבים מוגזמת עלולה לגרום לגזים, התכווצויות ולפגוע בספיגת מינרלים. הקפידו לשתות מים ולפזר את הצריכה."
+        });
+      }
+
+      return alerts;
+    }
+
+    // ---- Render ----
+    function render() {
+      const grams = total();
+      const pct = Math.min(100, Math.round((grams / GOAL) * 100));
+      const rawPct = Math.round((grams / GOAL) * 100);
+
+      currentEl.textContent = Number.isInteger(grams) ? grams : grams.toFixed(1);
+      barFill.style.width = pct + "%";
+      barFill.classList.toggle("over", grams > GOAL);
+      percentEl.textContent = rawPct + "%";
+
+      // Log list
+      logListEl.innerHTML = "";
+      if (log.length === 0) {
+        logListEl.innerHTML = '<li class="empty">עדיין לא נרשמו מזונות היום 🍽️</li>';
+      } else {
+        log.forEach((item, i) => {
+          const li = document.createElement("li");
+          li.className = "log-item";
+          li.innerHTML = `
+            <div class="info">
+              <span class="emoji">${item.emoji}</span>
+              <span class="name">${item.name}</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:12px;">
+              <span class="grams">${item.fiber} ג׳</span>
+              <button class="remove" title="הסר" data-i="${i}">✕</button>
+            </div>`;
+          logListEl.appendChild(li);
+        });
+      }
+
+      // Alerts
+      alertsArea.innerHTML = "";
+      buildAlerts().forEach(a => {
+        const div = document.createElement("div");
+        div.className = "alert " + a.type;
+        div.innerHTML = `
+          <span class="icon">${a.icon}</span>
+          <span><span class="title">${a.title}</span><span class="body">${a.body}</span></span>`;
+        alertsArea.appendChild(div);
+      });
+    }
+
+    // ---- Events ----
+    addBtn.addEventListener("click", addFood);
+    resetBtn.addEventListener("click", resetDay);
+    logListEl.addEventListener("click", e => {
+      const btn = e.target.closest(".remove");
+      if (btn) removeItem(Number(btn.dataset.i));
+    });
+
+    render();
+  </script>
+</body>
+</html>
