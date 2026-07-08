@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "FiberTrack AI",
+    "slug": "fibertrack-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "fibertrack",
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#0B3D2E"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fibertrack.ai"
+    },
+    "android": {
+      "package": "com.fibertrack.ai"
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "openAiApiKey": ""
+    }
+  }
+}
