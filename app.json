@@ -16,7 +16,8 @@
       "bundleIdentifier": "com.fibertrack.ai"
     },
     "android": {
-      "package": "com.fibertrack.ai"
+      "package": "com.fibertrack.ai",
+      "versionCode": 1
     },
     "web": {
       "bundler": "metro"

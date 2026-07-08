@@ -63,6 +63,17 @@ npm start                   # ואז i / a / w ל‑iOS / Android / Web
 **ללא מפתח API** האפליקציה עדיין עובדת במלואה: `aiAnalysis.js` נופל חזרה
 למעריך היוריסטי מקומי (`mockAnalyze`) כדי שאפשר להדגים מיד.
 
+## בניית APK להתקנה על אנדרואיד
+
+ראו מדריך מלא צעד‑אחר‑צעד ב‑[`BUILD_APK.md`](BUILD_APK.md). בקצרה:
+
+```bash
+npm install -g eas-cli
+eas login          # חשבון Expo חינמי
+eas init
+npm run build:apk  # מפיק קובץ APK בענן + קישור להורדה
+```
+
 ## כיצד עובד ה‑Prompt + Function (deliverable A)
 
 `aiAnalysis.js` בונה:
