@@ -36,6 +36,29 @@ npm run preview   # preview the production build
 
 The app seeds a demo family (Emma & Liam) on first run. Use **Family → Reset app to demo data** to start over.
 
+## Mobile apps (iOS & Android)
+
+The web app is wrapped as native mobile apps with [Capacitor](https://capacitorjs.com). The native projects live in `android/` and `ios/`.
+
+### Get the Android app (no tools to install)
+
+A GitHub Actions workflow builds an installable **APK** on GitHub's servers automatically:
+
+1. Open the repo's **Actions** tab → **Build Android APK** → the latest run.
+2. Download the **`BalanceBoard-apk`** artifact (it contains `BalanceBoard.apk`).
+3. Copy the APK to an Android phone and open it to install (you may need to allow "install from unknown sources").
+
+Tagging a release (`git tag v1.0.0 && git push --tags`) also attaches the APK to a GitHub Release.
+
+### Build locally instead
+
+```bash
+npm run mobile:android   # build web + sync + open Android Studio
+npm run mobile:ios       # build web + sync + open Xcode (macOS only)
+```
+
+Building Android locally needs **Android Studio** (or the Android SDK); building/running iOS needs a **Mac with Xcode** — this is an Apple requirement, not a limitation of this project. Under the hood these run `vite build && cap sync`.
+
 ## Project structure
 
 ```
