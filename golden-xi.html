@@ -192,18 +192,91 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>'
 
 const POS = {GK:'שוער', DEF:'הגנה', MID:'קשר', FWD:'התקפה'};
 const POSS = {GK:'GK', DEF:'DEF', MID:'MID', FWD:'FWD'};
-const NATIONS = [['ישראל','🇮🇱'],['ברזיל','🇧🇷'],['ארגנטינה','🇦🇷'],['צרפת','🇫🇷'],['ספרד','🇪🇸'],['איטליה','🇮🇹'],
-  ['גרמניה','🇩🇪'],['קרואטיה','🇭🇷'],['פורטוגל','🇵🇹'],['הולנד','🇳🇱'],['ניגריה','🇳🇬'],['יפן','🇯🇵']];
-const CLUBS = [{n:'אדומי העיר',c:'#e74c3c'},{n:'כחולי הים',c:'#3498db'},{n:'ירוקי היער',c:'#27ae60'},
-  {n:'צהובי השמש',c:'#f1c40f'},{n:'שחורי הלילה',c:'#2c3e50'},{n:'סגולי ההר',c:'#8e44ad'}];
+const NAT = {ISR:['ישראל','🇮🇱'],BRA:['ברזיל','🇧🇷'],ARG:['ארגנטינה','🇦🇷'],FRA:['צרפת','🇫🇷'],ESP:['ספרד','🇪🇸'],
+  ITA:['איטליה','🇮🇹'],GER:['גרמניה','🇩🇪'],CRO:['קרואטיה','🇭🇷'],POR:['פורטוגל','🇵🇹'],NED:['הולנד','🇳🇱'],NGA:['ניגריה','🇳🇬'],
+  JPN:['יפן','🇯🇵'],ENG:['אנגליה','🏴󠁧󠁢󠁥󠁮󠁧󠁿'],SCO:['סקוטלנד','🏴󠁧󠁢󠁳󠁣󠁴󠁿'],BEL:['בלגיה','🇧🇪'],NOR:['נורבגיה','🇳🇴'],URU:['אורוגוואי','🇺🇾'],
+  POL:['פולין','🇵🇱'],EGY:['מצרים','🇪🇬'],KOR:['דרום קוריאה','🇰🇷'],MAR:['מרוקו','🇲🇦'],SEN:['סנגל','🇸🇳'],GEO:['גאורגיה','🇬🇪'],
+  SWE:['שוודיה','🇸🇪'],DEN:['דנמרק','🇩🇰'],USA:['ארה״ב','🇺🇸'],COL:['קולומביה','🇨🇴'],CMR:['קמרון','🇨🇲'],SUI:['שווייץ','🇨🇭'],
+  TUR:['טורקיה','🇹🇷'],CAN:['קנדה','🇨🇦'],ECU:['אקוודור','🇪🇨'],HUN:['הונגריה','🇭🇺'],SRB:['סרביה','🇷🇸'],GHA:['גאנה','🇬🇭'],
+  SVN:['סלובניה','🇸🇮'],GUI:['גינאה','🇬🇳'],CZE:['צ׳כיה','🇨🇿']};
+const ACA_NATS = ['ISR','ISR','ISR','BRA','ARG','FRA','ESP','POR','NED','NGA','JPN','GER','ITA'];
+const CLUB = {ACA:['האקדמיה','#f5c542'],RMA:['ריאל מדריד','#f0f0f0'],BAR:['ברצלונה','#a50044'],ATM:['אתלטיקו מדריד','#cb3524'],
+  MCI:['מנצ׳סטר סיטי','#6cabdd'],LIV:['ליברפול','#c8102e'],ARS:['ארסנל','#ef0107'],CHE:['צ׳לסי','#034694'],MUN:['מנצ׳סטר יונייטד','#da291c'],
+  TOT:['טוטנהאם','#132257'],NEW:['ניוקאסל','#241f20'],AVL:['אסטון וילה','#670e36'],BAY:['באיירן מינכן','#dc052d'],BVB:['דורטמונד','#fde100'],
+  B04:['לברקוזן','#e32221'],PSG:['פריז סן ז׳רמן','#004170'],INT:['אינטר','#0068a8'],MIL:['מילאן','#fb090b'],NAP:['נאפולי','#12a0d7'],
+  JUV:['יובנטוס','#111111'],ATA:['אטאלנטה','#1e71b8'],GAL:['גלאטסראיי','#fdb912'],NSR:['אל נאסר','#fcd116'],MIA:['אינטר מיאמי','#f7b5cd'],
+  ITT:['אל איתיחאד','#f2c500'],HIL:['אל הילאל','#1d4ed8'],SAN:['סנטוס','#e5e5e5'],LAF:['לוס אנג׳לס FC','#c39e6d'],SUN:['סנדרלנד','#eb172b'],
+  VIL:['ויאריאל','#ffe667'],AJX:['איאקס','#d2122e'],FTC:['פרנצווארוש','#1d9a3e'],USG:['יוניון סן ז׳יל','#ffd700'],CLT:['שארלוט','#1a85c8'],
+  GNT:['גנט','#003f8a'],NER:['ניו אינגלנד','#0a2240'],LEG:['לגיה ורשה','#00843d'],MTA:['מכבי תל אביב','#ffd200'],MHA:['מכבי חיפה','#00a650'],
+  SOU:['סאות׳המפטון','#d71920'],PHI:['פילדלפיה יוניון','#b19b69'],AIN:['אל עין','#7b2d8e']};
+/* Real players: [name, position, rating, nation, club, short name for the card].
+   Ratings are this game's own estimates; clubs reflect roughly the 2025/26 season. */
+const DB = [
+ ['קיליאן אמבפה','FWD',91,'FRA','RMA'],['ויניסיוס ז׳וניור','FWD',89,'BRA','RMA','ויניסיוס'],['ג׳וד בלינגהאם','MID',88,'ENG','RMA'],
+ ['פדריקו ואלוורדה','MID',88,'URU','RMA'],['אורליין טשואמני','MID',85,'FRA','RMA'],['טיבו קורטואה','GK',89,'BEL','RMA'],
+ ['אנטוניו רודיגר','DEF',85,'GER','RMA'],['אדר מיליטאו','DEF',84,'BRA','RMA'],['טרנט אלכסנדר-ארנולד','DEF',85,'ENG','RMA','אלכסנדר-ארנולד'],
+ ['דין הויסן','DEF',80,'ESP','RMA'],['ארדה גולר','MID',81,'TUR','RMA'],['רודריגו','FWD',84,'BRA','RMA'],['אדוארדו קמאבינגה','MID',82,'FRA','RMA'],
+ ['פרנקו מסטנטואונו','FWD',76,'ARG','RMA'],['אלבארו קאררס','DEF',80,'ESP','RMA'],
+ ['לאמין ימאל','FWD',90,'ESP','BAR'],['פדרי','MID',89,'ESP','BAR'],['רפיניה','FWD',88,'BRA','BAR'],['רוברט לבנדובסקי','FWD',86,'POL','BAR'],
+ ['פרנקי דה יונג','MID',85,'NED','BAR','דה יונג'],['ז׳ול קונדה','DEF',85,'FRA','BAR'],['פאו קוברסי','DEF',83,'ESP','BAR'],
+ ['אלחנדרו באלדה','DEF',82,'ESP','BAR'],['גאבי','MID',82,'ESP','BAR'],['דני אולמו','MID',83,'ESP','BAR'],['פראן טורס','FWD',81,'ESP','BAR'],
+ ['מרקוס ראשפורד','FWD',81,'ENG','BAR'],['ז׳ואן גארסיה','GK',83,'ESP','BAR'],['רונלד אראוחו','DEF',82,'URU','BAR'],
+ ['אנטואן גריזמן','FWD',85,'FRA','ATM'],['חוליאן אלברס','FWD',86,'ARG','ATM'],['יאן אובלק','GK',87,'SVN','ATM'],['קוקה','MID',80,'ESP','ATM'],
+ ['אלכסנדר סורלות','FWD',81,'NOR','ATM'],['רובן לה נורמן','DEF',81,'ESP','ATM','לה נורמן'],
+ ['ארלינג הולאנד','FWD',91,'NOR','MCI'],['רודרי','MID',88,'ESP','MCI'],['פיל פודן','MID',85,'ENG','MCI'],['יושקו גבארדיול','DEF',85,'CRO','MCI'],
+ ['רובן דיאש','DEF',86,'POR','MCI'],['ג׳רמי דוקו','FWD',82,'BEL','MCI'],['עומר מרמוש','FWD',82,'EGY','MCI'],['טייג׳אני ריינדרס','MID',83,'NED','MCI'],
+ ['ראיין שרקי','MID',81,'FRA','MCI'],['ג׳אנלואיג׳י דונארומה','GK',88,'ITA','MCI'],['ברנרדו סילבה','MID',85,'POR','MCI'],
+ ['מוחמד סלאח','FWD',89,'EGY','LIV'],['וירג׳יל ואן דייק','DEF',89,'NED','LIV','ואן דייק'],['אליסון','GK',88,'BRA','LIV'],
+ ['פלוריאן וירץ','MID',87,'GER','LIV'],['אלכסנדר איסאק','FWD',87,'SWE','LIV'],['דומיניק סובוסלאי','MID',84,'HUN','LIV'],
+ ['אלכסיס מק אליסטר','MID',86,'ARG','LIV','מק אליסטר'],['ריאן חרבנברך','MID',85,'NED','LIV'],['הוגו אקיטיקה','FWD',82,'FRA','LIV'],
+ ['איברהימה קונאטה','DEF',84,'FRA','LIV'],['ג׳רמי פרימפונג','DEF',83,'NED','LIV'],['קודי חאקפו','FWD',83,'NED','LIV'],['מילוש קרקז','DEF',80,'HUN','LIV'],
+ ['בוקאיו סאקה','FWD',88,'ENG','ARS'],['מרטין אודגור','MID',87,'NOR','ARS'],['דקלן רייס','MID',87,'ENG','ARS'],['ויליאם סאליבה','DEF',87,'FRA','ARS'],
+ ['גבריאל מגאליאש','DEF',86,'BRA','ARS','גבריאל'],['דויד ראיה','GK',86,'ESP','ARS'],['ויקטור גיוקרש','FWD',85,'SWE','ARS'],
+ ['מרטין סובימנדי','MID',85,'ESP','ARS'],['אברצ׳י אזה','MID',84,'ENG','ARS'],['גבריאל מרטינלי','FWD',82,'BRA','ARS'],['יורין טימבר','DEF',82,'NED','ARS'],
+ ['קול פאלמר','MID',87,'ENG','CHE'],['אנסו פרננדס','MID',85,'ARG','CHE'],['מואיסס קאיסדו','MID',86,'ECU','CHE'],['ז׳ואאו פדרו','FWD',82,'BRA','CHE'],
+ ['אסטבאו','FWD',80,'BRA','CHE'],['מארק קוקורייה','DEF',83,'ESP','CHE'],['ריס ג׳יימס','DEF',83,'ENG','CHE'],['רוברט סאנצ׳ס','GK',80,'ESP','CHE'],
+ ['אלחנדרו גרנאצ׳ו','FWD',79,'ARG','CHE'],
+ ['ברונו פרננדס','MID',87,'POR','MUN'],['בריאן מבאומו','FWD',83,'CMR','MUN'],['מתיאוס קוניה','FWD',83,'BRA','MUN'],['בנימין שישקו','FWD',81,'SVN','MUN'],
+ ['קובי מאינו','MID',79,'ENG','MUN'],['מתייס דה ליכט','DEF',81,'NED','MUN','דה ליכט'],
+ ['כריסטיאן רומרו','DEF',85,'ARG','TOT'],['מיקי ואן דה ון','DEF',83,'NED','TOT','ואן דה ון'],['גוליילמו ויקריו','GK',82,'ITA','TOT'],
+ ['מוחמד קודוס','FWD',82,'GHA','TOT'],['צ׳אבי סימונס','MID',82,'NED','TOT'],['ג׳יימס מדיסון','MID',82,'ENG','TOT'],
+ ['ברונו גימראייש','MID',86,'BRA','NEW'],['אנתוני גורדון','FWD',83,'ENG','NEW'],['סנדרו טונאלי','MID',83,'ITA','NEW'],['ניק וולטמאדה','FWD',79,'GER','NEW'],
+ ['אולי ווטקינס','FWD',83,'ENG','AVL'],['מורגן רוג׳רס','MID',82,'ENG','AVL'],['אמיליאנו מרטינס','GK',85,'ARG','AVL'],['יורי טילמנס','MID',82,'BEL','AVL'],
+ ['הארי קיין','FWD',90,'ENG','BAY'],['ג׳מאל מוסיאלה','MID',87,'GER','BAY'],['יושוע קימיך','MID',87,'GER','BAY'],['מיכאל אוליסה','FWD',86,'FRA','BAY'],
+ ['לואיס דיאס','FWD',85,'COL','BAY'],['מנואל נוייר','GK',85,'GER','BAY'],['דאיו אופמקאנו','DEF',84,'FRA','BAY'],['אלפונסו דייויס','DEF',83,'CAN','BAY'],
+ ['יונתן טה','DEF',84,'GER','BAY'],
+ ['סרהו גיראסי','FWD',84,'GUI','BVB'],['גרגור קובל','GK',85,'SUI','BVB'],['ניקו שלוטרבק','DEF',82,'GER','BVB'],
+ ['אלחנדרו גרימאלדו','DEF',83,'ESP','B04'],['פטריק שיק','FWD',81,'CZE','B04'],
+ ['אוסמן דמבלה','FWD',90,'FRA','PSG'],['ח׳ביצ׳ה קווארצחליה','FWD',87,'GEO','PSG','קווארה'],['אשרף חכימי','DEF',87,'MAR','PSG'],
+ ['ויטיניה','MID',88,'POR','PSG'],['ז׳ואאו נבש','MID',85,'POR','PSG'],['דזירה דואה','FWD',85,'FRA','PSG'],['מרקיניוס','DEF',85,'BRA','PSG'],
+ ['נונו מנדש','DEF',86,'POR','PSG'],['ברדלי ברקולה','FWD',82,'FRA','PSG'],['לוקאס שבלייה','GK',81,'FRA','PSG'],['פביאן רואיס','MID',83,'ESP','PSG'],
+ ['ויליאן פאצ׳ו','DEF',82,'ECU','PSG'],
+ ['לאוטרו מרטינס','FWD',88,'ARG','INT','לאוטרו'],['מרקוס תוראם','FWD',84,'FRA','INT'],['ניקולו ברלה','MID',86,'ITA','INT'],
+ ['אלסנדרו בסטוני','DEF',86,'ITA','INT'],['האקאן צ׳להאנוגלו','MID',84,'TUR','INT'],['פדריקו דימרקו','DEF',84,'ITA','INT'],['יאן זומר','GK',84,'SUI','INT'],
+ ['רפאל לאאו','FWD',84,'POR','MIL'],['לוקה מודריץ׳','MID',83,'CRO','MIL'],['כריסטיאן פוליסיק','FWD',83,'USA','MIL'],['מייק מניאן','GK',86,'FRA','MIL'],
+ ['אדריאן ראביו','MID',82,'FRA','MIL'],
+ ['קווין דה בראונה','MID',86,'BEL','NAP','דה בראונה'],['סקוט מקטומיניי','MID',85,'SCO','NAP'],['רומלו לוקאקו','FWD',81,'BEL','NAP'],
+ ['רסמוס הויילונד','FWD',79,'DEN','NAP'],
+ ['קנאן יילדיז','FWD',84,'TUR','JUV'],['דושאן ולאחוביץ׳','FWD',81,'SRB','JUV'],['ג׳ונתן דייוויד','FWD',81,'CAN','JUV'],['גלייסון ברמר','DEF',84,'BRA','JUV'],
+ ['אדמולה לוקמן','FWD',83,'NGA','ATA'],['ויקטור אוסימן','FWD',86,'NGA','GAL'],
+ ['כריסטיאנו רונאלדו','FWD',85,'POR','NSR','רונאלדו'],['סאדיו מאנה','FWD',81,'SEN','NSR'],
+ ['ליונל מסי','FWD',87,'ARG','MIA','מסי'],['לואיס סוארס','FWD',78,'URU','MIA'],
+ ['קארים בנזמה','FWD',84,'FRA','ITT'],['נגולו קאנטה','MID',81,'FRA','ITT'],
+ ['תיאו הרננדס','DEF',82,'FRA','HIL'],['ז׳ואאו קנסלו','DEF',82,'POR','HIL'],['רובן נבש','MID',83,'POR','HIL'],
+ ['ניימאר','FWD',81,'BRA','SAN'],['סון הונג-מין','FWD',83,'KOR','LAF','סון'],['גרניט ג׳אקה','MID',82,'SUI','SUN'],
+ ['מנור סולומון','FWD',76,'ISR','VIL'],['אוסקר גלוך','MID',76,'ISR','AJX'],['מוחמד אבו פאני','MID',72,'ISR','FTC','אבו פאני'],
+ ['ענאן חלאילי','DEF',72,'ISR','USG'],['ליאל עבדה','FWD',72,'ISR','CLT'],['עומרי גנדלמן','MID',71,'ISR','GNT'],['דור טורגמן','FWD',69,'ISR','NER'],
+ ['גבי קניקובסקי','MID',71,'ISR','LEG'],['דור פרץ','MID',70,'ISR','MTA'],['רועי רביבו','DEF',67,'ISR','MTA'],['דניאל פרץ','GK',70,'ISR','SOU'],
+ ['שון גולדברג','DEF',67,'ISR','MHA'],['תאי בריבו','FWD',70,'ISR','PHI'],['עומר אצילי','FWD',69,'ISR','AIN'],
+];
 const FIRST = ['דניאל','יונתן','מרקו','לוקאס','עומר','אריאל','תיאו','רפאל','נועם','מתאו','קנג׳י','סמואל','איתי',
   'פאבלו','אנדרה','מיכאל','דייגו','אלון','הוגו','אמיר','ניקו','טוביאס','ז׳ואאו','אדם','יוסף','לוקה','ראיין','אוסקר'];
 const LAST = ['ברגר','סילבה','כהן','מורנו','דלוקה','אוקפור','טנאקה','פרננדס','לוי','וגנר','רוסי','אלמגור','קוסטה',
   'בנעים','מרטל','אוליביירה','שטרן','פרץ','ייאשידה','אדבאיו','קובאץ׳','דה-גרוט','ריברה','מוראלס','בוזאגלו','האן'];
 const AI_TEAMS = [
-  {n:'אריות הנמל',c:'#e67e22',r:56},{n:'בזי המדבר',c:'#d35400',r:60},{n:'כוכבי הצפון',c:'#2980b9',r:63},
-  {n:'זאבי החוף',c:'#16a085',r:66},{n:'ברקי העמק',c:'#c0392b',r:69},{n:'נשרי ההר',c:'#7f8c8d',r:72},
-  {n:'דולפיני המפרץ',c:'#1abc9c',r:76}];
+  {n:'אריות הנמל',c:'#e67e22',r:64},{n:'בזי המדבר',c:'#d35400',r:67},{n:'כוכבי הצפון',c:'#2980b9',r:70},
+  {n:'זאבי החוף',c:'#16a085',r:73},{n:'ברקי העמק',c:'#c0392b',r:76},{n:'נשרי ההר',c:'#7f8c8d',r:79},
+  {n:'דולפיני המפרץ',c:'#1abc9c',r:82}];
 
 /* Slot coordinates are % of the pitch; attack is at the top. */
 const FORM = {
@@ -213,14 +286,14 @@ const FORM = {
   '4-2-3-1':[['GK',50,90],['DEF',14,72],['DEF',38,76],['DEF',62,76],['DEF',86,72],['MID',34,57],['MID',66,57],['MID',16,36],['MID',50,34],['MID',84,36],['FWD',50,14]],
 };
 const PACKS = [
-  {id:'bronze',n:'חבילת ארד',d:'5 שחקנים · 48–64',price:300,bg:'linear-gradient(160deg,#eab27a,#8a5a2b)',ico:'🥉'},
-  {id:'silver',n:'חבילת כסף',d:'5 שחקנים · 60–75',price:900,bg:'linear-gradient(160deg,#f3f6f9,#98a3af)',ico:'🥈'},
-  {id:'gold',n:'חבילת זהב',d:'5 שחקנים · 68–86 · אחד 75+ מובטח',price:2200,bg:'linear-gradient(160deg,#fff0a8,#c99a1c)',ico:'🥇'},
-  {id:'elite',n:'חבילת עילית',d:'3 שחקנים · 80–94 · אחד 86+ מובטח',price:6500,bg:'linear-gradient(160deg,#d9b8ff,#5a2ea6)',ico:'💎'},
+  {id:'bronze',n:'חבילת ארד',d:'5 שחקנים · כוכבים עולים ושחקני אקדמיה',price:400,bg:'linear-gradient(160deg,#eab27a,#8a5a2b)',ico:'🥉'},
+  {id:'silver',n:'חבילת כסף',d:'5 שחקנים אמיתיים · 76–82',price:1200,bg:'linear-gradient(160deg,#f3f6f9,#98a3af)',ico:'🥈'},
+  {id:'gold',n:'חבילת זהב',d:'5 שחקנים · 79–87 · אחד 84+ מובטח',price:3200,bg:'linear-gradient(160deg,#fff0a8,#c99a1c)',ico:'🥇'},
+  {id:'elite',n:'חבילת עילית',d:'3 כוכבים · 85+ · אחד 88+ מובטח',price:8500,bg:'linear-gradient(160deg,#d9b8ff,#5a2ea6)',ico:'💎'},
 ];
 
 /* ---------- State ---------- */
-const KEY = 'goldenxi_v1';
+const KEY = 'goldenxi_v2';
 let S;
 function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
 function load(){ try{ const t = localStorage.getItem(KEY); if(t) return JSON.parse(t); }catch(e){} return null; }
@@ -228,7 +301,17 @@ function load(){ try{ const t = localStorage.getItem(KEY); if(t) return JSON.par
 function genPlayer(min, max, pos){
   if(!pos){ const r = R(); pos = r < .12 ? 'GK' : r < .42 ? 'DEF' : r < .72 ? 'MID' : 'FWD'; }
   const o = min + Math.floor(Math.pow(R(), 1.6) * (max - min + 1));
-  return {id: S.nextId++, n: pick(FIRST) + ' ' + pick(LAST), pos, o, nat: rint(0, NATIONS.length-1), cl: rint(0, CLUBS.length-1)};
+  return {id: S.nextId++, n: pick(FIRST) + ' ' + pick(LAST), pos, o, nat: pick(ACA_NATS), cl: 'ACA'};
+}
+/* Draw a real player from the database within a rating range. */
+function realPlayer(min, max){
+  let pool = DB.map((d, k) => k).filter(k => DB[k][2] >= min && DB[k][2] <= max);
+  if(!pool.length) return genPlayer(60, 70);
+  // Lower-rated players are more common.
+  pool.sort((a, b) => DB[a][2] - DB[b][2]);
+  const k = pool[Math.floor(Math.pow(R(), 1.5) * pool.length)];
+  const [n, pos, o, nat, cl, sh] = DB[k];
+  return {id: S.nextId++, k, n, sh, pos, o, nat, cl};
 }
 function makeSchedule(){
   const n = 8, ids = [...Array(n).keys()], rounds = [];
@@ -245,11 +328,11 @@ function makeSchedule(){
 }
 function newTable(){ return Array.from({length:8}, () => ({p:0,w:0,d:0,l:0,gf:0,ga:0})); }
 function newGame(){
-  S = {coins:1500, club:'הקבוצה שלי', players:[], nextId:1, formation:'4-3-3', lineup:Array(11).fill(null),
+  S = {coins:2000, club:'הקבוצה שלי', players:[], nextId:1, formation:'4-3-3', lineup:Array(11).fill(null),
     season:1, round:0, teams:AI_TEAMS.map(t => ({...t})), table:newTable(), schedule:makeSchedule(),
     form:[], lastDaily:'', stats:{wins:0,goals:0,titles:0,matches:0}};
   ['GK','GK','DEF','DEF','DEF','DEF','DEF','MID','MID','MID','MID','FWD','FWD','FWD','FWD']
-    .forEach(p => S.players.push(genPlayer(52, 64, p)));
+    .forEach(p => S.players.push(genPlayer(55, 65, p)));
   autoBest(true);
   save();
 }
@@ -257,7 +340,9 @@ function newGame(){
 /* ---------- Squad logic ---------- */
 const byId = id => S.players.find(p => p.id === id);
 const lineupPlayers = () => S.lineup.map(id => id == null ? null : byId(id) || null);
-const tier = o => o >= 87 ? 'elite' : o >= 75 ? 'gold' : o >= 65 ? 'silver' : 'bronze';
+const tier = o => o >= 87 ? 'elite' : o >= 80 ? 'gold' : o >= 72 ? 'silver' : 'bronze';
+/* Two copies of the same real player can't both start. */
+const ukey = p => p.k != null ? 'k' + p.k : 'a' + p.id;
 function chemFor(i, lp){
   const p = lp[i]; if(!p) return 0;
   if(FORM[S.formation][i][0] !== p.pos) return 0;
@@ -285,8 +370,8 @@ function autoBest(silent){
   const sl = FORM[S.formation], used = new Set(), nl = Array(11).fill(null);
   const sorted = [...S.players].sort((a, b) => b.o - a.o);
   const order = [...sl.keys()].sort((a, b) => (sl[a][0] === 'GK' ? -1 : 0) - (sl[b][0] === 'GK' ? -1 : 0));
-  order.forEach(i => { const p = sorted.find(q => !used.has(q.id) && q.pos === sl[i][0]); if(p){ nl[i] = p.id; used.add(p.id); } });
-  order.forEach(i => { if(nl[i] == null){ const p = sorted.find(q => !used.has(q.id) && q.pos !== 'GK'); if(p){ nl[i] = p.id; used.add(p.id); } } });
+  order.forEach(i => { const p = sorted.find(q => !used.has(ukey(q)) && q.pos === sl[i][0]); if(p){ nl[i] = p.id; used.add(ukey(p)); } });
+  order.forEach(i => { if(nl[i] == null){ const p = sorted.find(q => !used.has(ukey(q)) && q.pos !== 'GK'); if(p){ nl[i] = p.id; used.add(ukey(p)); } } });
   S.lineup = nl;
   if(!silent){ save(); render(); toast('ההרכב הטוב ביותר נבחר'); }
 }
@@ -301,9 +386,9 @@ const trainCost = p => 150 + (p.o - 45) * 25;
 
 /* ---------- UI helpers ---------- */
 function cardHTML(p, sm){
-  const [, flag] = NATIONS[p.nat];
+  const flag = NAT[p.nat][1], short = p.sh || p.n.split(' ').slice(-1)[0];
   return `<div class="card t-${tier(p.o)} ${sm ? 'sm' : ''}"><div class="ct"><b>${p.o}</b><small>${POSS[p.pos]}</small></div>
-    <div class="fl">${flag}</div><div class="nm">${esc(p.n.split(' ').slice(-1)[0])}</div><div class="clb" style="background:${CLUBS[p.cl].c}"></div></div>`;
+    <div class="fl">${flag}</div><div class="nm">${esc(short)}</div><div class="clb" style="background:${CLUB[p.cl][1]}"></div></div>`;
 }
 function toast(t){ const d = document.createElement('div'); d.className = 'toast'; d.textContent = t; document.body.appendChild(d); setTimeout(() => d.remove(), 1800); }
 function overlay(html){ const o = document.createElement('div'); o.className = 'ov'; o.innerHTML = `<div class="modal">${html}</div>`; document.body.appendChild(o); return o; }
@@ -399,19 +484,21 @@ function renderSquad(){
   $('#auto').onclick = () => autoBest(false);
 }
 function pickForSlot(i){
-  const pos = FORM[S.formation][i][0], cur = S.lineup[i];
+  const pos = FORM[S.formation][i][0], cur = S.lineup[i], lp = lineupPlayers();
   const list = [...S.players].sort((a, b) => ((b.pos === pos) - (a.pos === pos)) || b.o - a.o);
   const o = overlay(`<div class="row sp"><h3>בחר ${POS[pos]}</h3><button class="btn sec sm" id="x">✕</button></div>
     ${cur != null ? `<button class="btn sec sm" id="rm" style="margin-bottom:10px">הוצא מההרכב</button>` : ''}
     <div class="plist">${list.map(p => {
       const j = S.lineup.indexOf(p.id);
-      return `<div class="pitem" data-id="${p.id}" style="cursor:pointer;${p.id === cur ? 'border-color:var(--acc)' : ''}">${cardHTML(p, true)}
-        <div class="info"><b>${esc(p.n)}</b><span class="mut">${NATIONS[p.nat][0]} · ${CLUBS[p.cl].n}</span><br>
-        ${p.pos !== pos ? `<span class="tag" style="background:#3a1e22;color:var(--red)">עמדה: ${POS[p.pos]}</span> ` : ''}${j >= 0 ? '<span class="tag">בהרכב</span>' : ''}</div></div>`;
+      const twin = j < 0 && lp.some((q, m) => q && m !== i && q.id !== p.id && ukey(q) === ukey(p));
+      return `<div class="pitem" data-id="${p.id}" ${twin ? 'data-twin="1"' : ''} style="cursor:pointer;${twin ? 'opacity:.4;' : ''}${p.id === cur ? 'border-color:var(--acc)' : ''}">${cardHTML(p, true)}
+        <div class="info"><b>${esc(p.n)}</b><span class="mut">${NAT[p.nat][0]} · ${CLUB[p.cl][0]}</span><br>
+        ${p.pos !== pos ? `<span class="tag" style="background:#3a1e22;color:var(--red)">עמדה: ${POS[p.pos]}</span> ` : ''}${j >= 0 ? '<span class="tag">בהרכב</span>' : ''}${twin ? '<span class="tag">עותק נוסף כבר בהרכב</span>' : ''}</div></div>`;
     }).join('')}</div>`);
   o.querySelector('#x').onclick = () => o.remove();
   if(cur != null) o.querySelector('#rm').onclick = () => { S.lineup[i] = null; save(); o.remove(); render(); };
   o.querySelectorAll('.pitem').forEach(el => el.onclick = () => {
+    if(el.dataset.twin) return toast('השחקן הזה כבר בהרכב');
     const id = +el.dataset.id, j = S.lineup.indexOf(id);
     if(j >= 0) S.lineup[j] = S.lineup[i];
     S.lineup[i] = id; save(); o.remove(); render();
@@ -421,7 +508,7 @@ function renderStore(){
   $('#app').innerHTML = `<h2>חנות חבילות</h2><div class="packs">${PACKS.map(p =>
     `<button class="pack" data-p="${p.id}" style="background:${p.bg};${p.id === 'elite' ? 'color:#fff' : ''}" ${S.coins < p.price ? 'disabled' : ''}>
       <span class="pi">${p.ico}</span><b>${p.n}</b><small>${p.d}</small><span class="price">🪙 ${p.price.toLocaleString()}</span></button>`).join('')}</div>
-    <div class="box mut" style="margin-top:14px;line-height:1.6">מרוויחים מטבעות מניצחונות, משערים, מבונוס יומי, מסיום עונה ומכירת שחקנים.</div>`;
+    <div class="box mut" style="margin-top:14px;line-height:1.6">מרוויחים מטבעות מניצחונות, משערים, מבונוס יומי, מסיום עונה ומכירת שחקנים.<br>⚠️ הדירוגים הם הערכה של המשחק, והקבוצות נכונות בערך לעונת 2025/26.</div>`;
   document.querySelectorAll('.pack').forEach(b => b.onclick = () => openPack(b.dataset.p));
 }
 function openPack(id){
@@ -429,10 +516,10 @@ function openPack(id){
   if(S.coins < pk.price) return;
   S.coins -= pk.price;
   let got = [];
-  if(id === 'bronze') for(let k = 0; k < 5; k++) got.push(genPlayer(48, 64));
-  if(id === 'silver') for(let k = 0; k < 5; k++) got.push(genPlayer(60, 75));
-  if(id === 'gold'){ for(let k = 0; k < 4; k++) got.push(R() < .05 ? genPlayer(87, 91) : genPlayer(68, 82)); got.push(genPlayer(75, 86)); }
-  if(id === 'elite'){ got.push(genPlayer(80, 90), genPlayer(80, 92), genPlayer(86, 94)); }
+  if(id === 'bronze') for(let k = 0; k < 5; k++) got.push(R() < .55 ? realPlayer(60, 77) : genPlayer(60, 71));
+  if(id === 'silver') for(let k = 0; k < 5; k++) got.push(R() < .04 ? realPlayer(83, 86) : realPlayer(76, 82));
+  if(id === 'gold'){ for(let k = 0; k < 4; k++) got.push(R() < .06 ? realPlayer(88, 91) : realPlayer(79, 87)); got.push(realPlayer(84, 89)); }
+  if(id === 'elite'){ got.push(realPlayer(85, 89), realPlayer(85, 91), realPlayer(88, 91)); }
   got.sort((a, b) => a.o - b.o);
   S.players.push(...got); save(); render();
   const o = overlay(`<h3 style="text-align:center">${pk.ico} ${pk.n}</h3>
@@ -444,8 +531,8 @@ function openPack(id){
   const step = () => {
     if(k >= flips.length) return;
     flips[k].classList.add('open'); const p = got[k];
-    o.querySelector('#pinfo').textContent = `${p.n} · ${POS[p.pos]} · ${NATIONS[p.nat][0]}`;
-    if(p.o >= 85) buzz(80);
+    o.querySelector('#pinfo').textContent = `${p.n} · ${POS[p.pos]} · ${CLUB[p.cl][0]}`;
+    if(p.o >= 86) buzz(80);
     k++;
     o.querySelector('#ok').textContent = k >= flips.length ? 'אסוף' : 'הבא';
   };
@@ -458,14 +545,14 @@ function openPack(id){
 function renderClub(){
   const posF = ['ALL','GK','DEF','MID','FWD'];
   const list = S.players.filter(p => colFilter === 'ALL' || p.pos === colFilter).sort((a, b) => b.o - a.o);
-  const weak = S.players.filter(p => !S.lineup.includes(p.id) && p.o < 60);
+  const weak = S.players.filter(p => !S.lineup.includes(p.id) && p.o < 66);
   $('#app').innerHTML = `<h2>השחקנים שלי (${S.players.length})</h2>
     <div class="chips">${posF.map(f => `<button class="chip ${f === colFilter ? 'on' : ''}" data-c="${f}">${f === 'ALL' ? 'הכול' : POS[f]}</button>`).join('')}</div>
-    ${weak.length ? `<button class="btn sec sm" id="qs" style="margin-bottom:12px">🧹 מכור ${weak.length} שחקנים מתחת ל־60 שלא בהרכב (+${weak.reduce((s, p) => s + sellValue(p), 0)} 🪙)</button>` : ''}
+    ${weak.length ? `<button class="btn sec sm" id="qs" style="margin-bottom:12px">🧹 מכור ${weak.length} שחקנים מתחת ל־66 שלא בהרכב (+${weak.reduce((s, p) => s + sellValue(p), 0)} 🪙)</button>` : ''}
     <div class="plist">${list.map(p => {
       const inL = S.lineup.includes(p.id), tc = trainCost(p);
       return `<div class="pitem">${cardHTML(p, true)}
-        <div class="info"><b>${esc(p.n)}</b><span class="mut">${POS[p.pos]} · ${NATIONS[p.nat][0]} · ${CLUBS[p.cl].n}</span><br>${inL ? '<span class="tag">בהרכב</span>' : ''}</div>
+        <div class="info"><b>${esc(p.n)}</b><span class="mut">${POS[p.pos]} · ${NAT[p.nat][0]} · ${CLUB[p.cl][0]}</span><br>${inL ? '<span class="tag">בהרכב</span>' : ''}</div>
         <div class="acts">
           <button class="btn sm" data-tr="${p.id}" ${S.coins < tc || p.o >= 95 ? 'disabled' : ''}>💪 +1 · ${tc}</button>
           <button class="btn sec sm" data-se="${p.id}" ${inL ? 'disabled' : ''}>מכור +${sellValue(p)}</button>
@@ -502,7 +589,7 @@ function renderLeague(){
       ${rd.map(([h, a]) => `<div class="row sp" style="padding:6px 0;${h === 0 || a === 0 ? 'color:var(--acc);font-weight:700' : ''}">
         <span>${esc(teamName(h))}</span><span class="mut">נגד</span><span>${esc(teamName(a))}</span></div>`).join('')}
     </div>
-    <div class="box mut" style="line-height:1.6">🏆 פרסי סוף עונה: מקום 1 – 6,000 · מקום 2 – 3,500 · מקום 3 – 2,000 · שאר המקומות – 800. בכל עונה היריבות מתחזקות.</div>`;
+    <div class="box mut" style="line-height:1.6">🏆 פרסי סוף עונה: מקום 1 – 9,000 · מקום 2 – 5,500 · מקום 3 – 3,500 · שאר המקומות – 1,500. בכל עונה היריבות מתחזקות.</div>`;
 }
 
 /* ---------- Match engine ---------- */
@@ -643,7 +730,7 @@ function endMatch(){
   const m = M; M = null;
   addEv(m.min, `🏁 שריקת סיום · ${m.my}–${m.op}`);
   const res = m.my > m.op ? 'W' : m.my === m.op ? 'D' : 'L';
-  const reward = ({W:450, D:200, L:80})[res] + m.my * 60;
+  const reward = ({W:550, D:250, L:100})[res] + m.my * 70;
   S.coins += reward; S.form.push(res); S.form = S.form.slice(-10);
   S.stats.matches++; S.stats.goals += m.my; if(res === 'W') S.stats.wins++;
   // Record every fixture of the round.
@@ -671,7 +758,7 @@ function endMatch(){
 }
 function seasonEnd(){
   const place = position();
-  const prize = [6000, 3500, 2000][place - 1] || 800;
+  const prize = [9000, 5500, 3500][place - 1] || 1500;
   S.coins += prize;
   if(place === 1) S.stats.titles++;
   const o = overlay(`<div style="text-align:center"><div style="font-size:54px">${place === 1 ? '🏆' : place <= 3 ? '🏅' : '📅'}</div>
@@ -682,7 +769,7 @@ function seasonEnd(){
     <button class="btn big" id="ns">התחל עונה ${S.season + 1}</button></div>`);
   o.querySelector('#ns').onclick = () => {
     S.season++; S.round = 0; S.table = newTable(); S.schedule = makeSchedule();
-    S.teams.forEach(t => t.r = Math.min(93, t.r + rint(1, 3)));
+    S.teams.forEach(t => t.r = Math.min(92, t.r + rint(1, 3)));
     save(); o.remove(); tab = 'home'; render();
   };
 }
