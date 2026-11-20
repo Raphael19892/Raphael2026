@@ -249,7 +249,10 @@ label.field { display: grid; gap: 4px; font-size: .86rem; color: var(--muted); }
   background: var(--fg); color: var(--bg); padding: 10px 18px; border-radius: 999px; font-size: .9rem;
   transition: opacity .2s, transform .2s; pointer-events: none; max-width: calc(100% - 32px); text-align: center;
 }
-.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.toast.show { opacity: 1; transform: translateX(-50%) translateY(0); pointer-events: auto; }
+.toast { display: flex; align-items: center; gap: 12px; }
+.toast button { border: 0; background: transparent; color: var(--accent-soft); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; padding: 2px 4px; }
+.res .qty b { color: var(--accent); font-weight: 700; }
 @media (max-width: 760px) { .toast { bottom: calc(86px + env(safe-area-inset-bottom, 0px)); } }
 .banner { background: var(--warn-soft); color: var(--warn); border-radius: 10px; padding: 10px 14px; font-size: .9rem; }
 
@@ -723,10 +726,22 @@ function fiberStatus(g) {
   return { cls: 'over', label: 'מעל הטווח', hint: 'הרבה סיבים: הקפידו על שתייה מרובה' };
 }
 let toastTimer;
-function toast(msg) {
+let undoFn = null;
+function toast(msg, onUndo) {
   const t = $('#toast');
-  t.textContent = msg; t.classList.add('show');
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+  t.innerHTML = `<span>${esc(msg)}</span>${onUndo ? '<button type="button" id="toast-undo">ביטול</button>' : ''}`;
+  undoFn = onUndo || null;
+  t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.classList.remove('show'); undoFn = null; }, onUndo ? 5000 : 2200);
+}
+// snapshot of one day's log, returned as an undo function
+function snapshotDay(k) {
+  const before = JSON.stringify(S.log[k] || []);
+  return () => {
+    const arr = JSON.parse(before);
+    if (arr.length) S.log[k] = arr; else delete S.log[k];
+    save(); render(); toast('הפעולה בוטלה');
+  };
 }
 
 const ICON = {
@@ -920,7 +935,7 @@ function renderResults() {
       <i class="dot" style="background:${CATS[f.cat].color}"></i>
       <div class="nm">${esc(f.name)}<small>${esc(f.portion)} · ${CATS[f.cat].name}</small></div>
       <span class="fb num">${g1(f.fiber)} ג׳</span>
-      <button class="icon-btn" data-act="add" data-id="${esc(f.id)}" aria-label="הוספת ${esc(f.name)} ל${MEAL_NAME[UI.addMeal]}">${ICON.plus}</button>
+      ${resQty(f)}
     </li>`).join('')}</ul>`;
   } else if (!blocked) {
     html += `<p class="note" style="margin-top:10px">לא נמצא "${esc(UI.query.trim())}". אפשר להוסיף אותו כמזון חדש בכפתור למטה.</p>`;
@@ -943,7 +958,19 @@ function refreshToday() {
   const l = $('#today-log'); if (l) l.innerHTML = todayLog();
 }
 
+// "+" and "−" beside a search result: change the portions of that food in the selected meal
+function resQty(f) {
+  const e = dayEntries(UI.date).find(x => x.foodId === f.id && x.meal === UI.addMeal);
+  const plus = `<button class="icon-btn" data-act="add" data-id="${esc(f.id)}" aria-label="הוספת ${esc(f.name)} ל${MEAL_NAME[UI.addMeal]}">${ICON.plus}</button>`;
+  if (!e) return plus;
+  return `<div class="qty">
+    <button class="icon-btn" data-act="sub" data-id="${esc(f.id)}" aria-label="הורדת מנה של ${esc(f.name)}">${ICON.minus}</button>
+    <b class="num">×${g1(e.qty)}</b>${plus}</div>`;
+}
+
 function addEntry(dateKey, food, qty, meal) {
+  const same = (S.log[dateKey] || []).find(x => x.foodId === food.id && x.meal === meal);
+  if (same) { same.qty = Math.min(10, same.qty + qty); return; }
   (S.log[dateKey] = S.log[dateKey] || []).push({
     id: uid(), foodId: food.id, name: food.name, cat: food.cat, fiber: food.fiber,
     portion: food.portion, qty, meal,
@@ -1208,7 +1235,18 @@ function viewPantry() {
 /* =========================================================
    Events
    ========================================================= */
+function removeEntry(id) {
+  S.log[UI.date] = dayEntries(UI.date).filter(x => x.id !== id);
+  if (!S.log[UI.date].length) delete S.log[UI.date];
+}
+
 document.addEventListener('click', ev => {
+  if (ev.target.id === 'toast-undo') {
+    const fn = undoFn; undoFn = null;
+    $('#toast').classList.remove('show');
+    if (fn) fn();
+    return;
+  }
   const tab = ev.target.closest('.tab');
   if (tab) { go(tab.dataset.view); return; }
   const el = ev.target.closest('[data-act]');
@@ -1225,19 +1263,40 @@ document.addEventListener('click', ev => {
     case 'add': {
       const f = foodById(el.dataset.id);
       if (!f || foodBlocked(f)) return;
-      addEntry(UI.date, f, 1, UI.addMeal); save(); refreshToday();
-      toast(`נוסף ל${MEAL_NAME[UI.addMeal]}: ${f.name} (${g1(f.fiber)} ג׳)`);
+      const undo = snapshotDay(UI.date);
+      addEntry(UI.date, f, 1, UI.addMeal); save(); refreshToday(); renderResults();
+      toast(`נוסף ל${MEAL_NAME[UI.addMeal]}: ${f.name} (${g1(f.fiber)} ג׳)`, undo);
+      break;
+    }
+    case 'sub': {
+      const e = dayEntries(UI.date).find(x => x.foodId === el.dataset.id && x.meal === UI.addMeal);
+      if (!e) return;
+      const undo = snapshotDay(UI.date);
+      e.qty = Math.round((e.qty - 1) * 10) / 10;
+      if (e.qty <= 0) removeEntry(e.id);
+      save(); refreshToday(); renderResults();
+      toast(e.qty > 0 ? `${e.name}: ×${g1(e.qty)}` : `${e.name} הוסר מ${MEAL_NAME[UI.addMeal]}`, undo);
       break;
     }
     case 'qty': {
       const e = dayEntries(UI.date).find(x => x.id === el.dataset.id);
       if (!e) return;
-      e.qty = Math.max(0.5, Math.min(10, e.qty + +el.dataset.d)); save(); refreshToday(); break;
+      const d = +el.dataset.d;
+      if (d < 0 && e.qty <= 0.5) {
+        // minus on the last half portion removes the item
+        const undo = snapshotDay(UI.date);
+        removeEntry(e.id); save(); refreshToday(); renderResults();
+        toast(`${e.name} הוסר`, undo); break;
+      }
+      e.qty = Math.max(0.5, Math.min(10, e.qty + d)); save(); refreshToday(); renderResults(); break;
     }
-    case 'del':
-      S.log[UI.date] = dayEntries(UI.date).filter(x => x.id !== el.dataset.id);
-      if (!S.log[UI.date].length) delete S.log[UI.date];
-      save(); refreshToday(); break;
+    case 'del': {
+      const e = dayEntries(UI.date).find(x => x.id === el.dataset.id);
+      const undo = snapshotDay(UI.date);
+      removeEntry(el.dataset.id); save(); refreshToday(); renderResults();
+      if (e) toast(`${e.name} הוסר`, undo);
+      break;
+    }
     case 'water': {
       const n = +el.dataset.n, cur = S.water[UI.date] || 0;
       S.water[UI.date] = cur === n ? n - 1 : n; save(); refreshToday(); break;
@@ -1248,9 +1307,10 @@ document.addEventListener('click', ev => {
     case 'reroll': rerollOne(+el.dataset.i); render(); break;
     case 'log-meal': {
       const m = UI.suggestions.list[+el.dataset.i];
+      const undo = snapshotDay(UI.date);
       m.items.forEach(it => addEntry(UI.date, foodById(it.foodId), it.qty, el.dataset.m));
       save();
-      toast(`${TEMPLATES.find(t => t.id === m.tid).name} נוספה ליומן: +${g1(m.fiber)} ג׳ סיבים`);
+      toast(`${TEMPLATES.find(t => t.id === m.tid).name} נוספה ליומן: +${g1(m.fiber)} ג׳`, undo);
       render(); break;
     }
     case 'week': UI.week = addDays(UI.week, +el.dataset.d); render(); break;
