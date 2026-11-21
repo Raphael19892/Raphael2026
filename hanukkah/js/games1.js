@@ -201,15 +201,48 @@ HK.games = HK.games || {};
   };
 
   /* ======================= 3. חידון חנוכה ======================= */
+  // בחירת סימן לחידון תלמידי חכמים
+  function scholarPicker(root, onPick) {
+    var all = HK.QUIZ.filter(function (q) { return q.l === 3; });
+    var html = '<div class="game g-scholar">' +
+      '<div class="q-scholar">📜 חידון לתלמידי חכמים · הלכות חנוכה<br><small>שולחן ערוך אורח חיים סי\' תר"ע–תרפ"ד, עם הרמ"א והמשנה ברורה · ' + all.length + ' שאלות על כל הסימנים</small></div>' +
+      '<div class="sch-modes">' +
+      '<button class="btn btn-gold" data-m="mix">🎯 מבחן כללי – 12 שאלות מכל הסימנים</button>' +
+      '<button class="btn btn-blue" data-m="all">📚 כל ההלכות ברצף (' + all.length + ' שאלות)</button>' +
+      '</div><h3 class="sch-h">או בחרו סימן:</h3><div class="sch-grid">';
+    HK.SIMANIM.forEach(function (sm) {
+      var b = HK.store.best('quizsm:' + sm.id);
+      html += '<button class="sch-sm' + (b ? ' done' : '') + '" data-sm="' + sm.id + '"><b>סי\' ' + sm.n + '</b><span>' + sm.title + '</span><small>' + sm.qs.length + ' שאלות' + (b ? ' · ' + '★'.repeat(b) : '') + '</small></button>';
+    });
+    root.innerHTML = html + '</div></div>';
+    root.querySelectorAll('[data-m],[data-sm]').forEach(function (btn) {
+      btn.onclick = function () {
+        HK.audio.play('tap');
+        if (btn.dataset.m === 'mix') onPick(ui.shuffle(all).slice(0, 12), 'מבחן כללי', null);
+        else if (btn.dataset.m === 'all') onPick(all.slice(), 'כל ההלכות ברצף', null);
+        else {
+          var sm = HK.SIMANIM.filter(function (x) { return x.id === +btn.dataset.sm; })[0];
+          onPick(all.filter(function (q) { return q.sm === sm.id; }), 'סימן ' + sm.n + ' – ' + sm.title, sm.id);
+        }
+      };
+    });
+  }
+
   HK.games.quiz = {
     start: function (root, level, api) {
-      var pool = ui.shuffle(HK.QUIZ.filter(function (q) { return q.l === level; })).slice(0, level === 3 ? 10 : 8);
+      var self = this;
+      if (level !== 3) return self.run(root, level, api, ui.shuffle(HK.QUIZ.filter(function (q) { return q.l === level; })).slice(0, 8), null, null);
+      var holder = { c: null };
+      scholarPicker(root, function (pool, label, smId) { holder.c = self.run(root, 3, api, pool, label, smId); });
+      return function () { if (holder.c) holder.c(); };
+    },
+    run: function (root, level, api, pool, label, smId) {
       var qi = 0, score = 0, correct = 0, streak = 0, timers = [];
       root.innerHTML =
         '<div class="game g-quiz' + (level === 3 ? ' lv3' : '') + '">' +
         '<div class="q-top"><div class="pill" id="qprog"></div><div class="pill">🏆 ניקוד: <b id="qscore">0</b></div></div>' +
         '<div class="q-bar"><i id="qbar"></i></div>' +
-        (level === 3 ? '<div class="q-scholar">📜 חידון לתלמידי חכמים · לפי השולחן ערוך והמשנה ברורה (או"ח סי\' תר"ע–תרפ"ד)</div>' : '') +
+        (level === 3 ? '<div class="q-scholar">📜 ' + label + '</div>' : '') +
         '<div class="q-card" id="qcard"></div>' +
         '<div class="q-answers" id="qans"></div>' +
         '<div class="q-feedback" id="qfb"></div>' +
@@ -263,6 +296,7 @@ HK.games = HK.games || {};
       function finish() {
         root.querySelector('#qbar').style.width = '100%';
         var n = pool.length, stars = correct >= n ? 3 : correct >= n * 0.75 ? 2 : correct >= n * 0.5 ? 1 : 0;
+        if (smId && stars) HK.store.record('quizsm:' + smId, stars);
         api.finish(stars, { text: 'ענית נכון על ' + correct + ' מתוך ' + pool.length + ' שאלות · ניקוד: ' + score, say: 'ענית נכון על ' + correct + ' שאלות' });
       }
       show();

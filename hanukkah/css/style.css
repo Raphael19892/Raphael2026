@@ -461,3 +461,15 @@ svg { display: block; }
 .lv.lv-scholar { grid-column: 1 / -1; background: linear-gradient(160deg, #6a4bd6, #2a1a6e); border-color: var(--gold); box-shadow: 0 6px 0 #1a0f4a, 0 0 18px rgba(246,196,69,.3); }
 .lv.lv-scholar small::after { content: ' · לפי המשנה ברורה 📜'; }
 .lv.lv-scholar.done { background: linear-gradient(160deg, #f6c445, #c48a14); }
+.g-scholar .q-scholar small { color: var(--muted); font-weight: 500; }
+.sch-modes { display: grid; gap: 10px; }
+.sch-modes .btn { width: 100%; font-size: 1.1rem; }
+.sch-h { margin: 6px 0 0; font-size: 1.15rem; }
+.sch-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.sch-sm { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: right; padding: 12px; border-radius: 18px; background: linear-gradient(160deg, #6a4bd6, #2a1a6e); border: 2px solid rgba(255,229,138,.4); box-shadow: 0 5px 0 #1a0f4a; animation: popIn .35s ease both; }
+.sch-sm:active { transform: translateY(3px); box-shadow: 0 2px 0 #1a0f4a; }
+.sch-sm b { color: var(--gold2); font-size: 1.1rem; }
+.sch-sm span { font-size: .95rem; line-height: 1.3; }
+.sch-sm small { color: var(--muted); font-size: .82rem; }
+.sch-sm.done { border-color: var(--gold); }
+@media (min-width: 620px) { .sch-grid { grid-template-columns: repeat(3, 1fr); } }
