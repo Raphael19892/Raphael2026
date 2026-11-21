@@ -454,3 +454,10 @@ svg { display: block; }
 .frac { display: inline-block; direction: ltr; unicode-bidi: isolate; }
 .run-jump { display: flex; width: 100%; margin-top: 14px; min-height: 84px; font-size: 1.6rem; touch-action: none; }
 @media (orientation: landscape) { .run-jump { display: none; } }
+.q-scholar { text-align: center; font-size: .95rem; padding: 8px 12px; border-radius: 14px; background: linear-gradient(90deg, rgba(246,196,69,.25), rgba(246,196,69,.08)); border: 1.5px solid rgba(246,196,69,.55); color: var(--gold2); font-weight: 600; }
+.q-src { margin-top: 6px; font-size: .9rem; color: var(--gold2); font-weight: 600; }
+.g-quiz.lv3 .q-card h3 { font-size: 1.25rem; }
+.g-quiz.lv3 .q-answers { grid-template-columns: 1fr; }
+.lv.lv-scholar { grid-column: 1 / -1; background: linear-gradient(160deg, #6a4bd6, #2a1a6e); border-color: var(--gold); box-shadow: 0 6px 0 #1a0f4a, 0 0 18px rgba(246,196,69,.3); }
+.lv.lv-scholar small::after { content: ' · לפי המשנה ברורה 📜'; }
+.lv.lv-scholar.done { background: linear-gradient(160deg, #f6c445, #c48a14); }

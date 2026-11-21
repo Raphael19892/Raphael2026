@@ -203,12 +203,13 @@ HK.games = HK.games || {};
   /* ======================= 3. חידון חנוכה ======================= */
   HK.games.quiz = {
     start: function (root, level, api) {
-      var pool = ui.shuffle(HK.QUIZ.filter(function (q) { return q.l === level; })).slice(0, 8);
+      var pool = ui.shuffle(HK.QUIZ.filter(function (q) { return q.l === level; })).slice(0, level === 3 ? 10 : 8);
       var qi = 0, score = 0, correct = 0, streak = 0, timers = [];
       root.innerHTML =
-        '<div class="game g-quiz">' +
+        '<div class="game g-quiz' + (level === 3 ? ' lv3' : '') + '">' +
         '<div class="q-top"><div class="pill" id="qprog"></div><div class="pill">🏆 ניקוד: <b id="qscore">0</b></div></div>' +
         '<div class="q-bar"><i id="qbar"></i></div>' +
+        (level === 3 ? '<div class="q-scholar">📜 חידון לתלמידי חכמים · לפי השולחן ערוך והמשנה ברורה (או"ח סי\' תר"ע–תרפ"ד)</div>' : '') +
         '<div class="q-card" id="qcard"></div>' +
         '<div class="q-answers" id="qans"></div>' +
         '<div class="q-feedback" id="qfb"></div>' +
@@ -243,11 +244,11 @@ HK.games = HK.games || {};
         if (ok) {
           correct++; streak++; var pts = 100 + (streak > 1 ? (streak - 1) * 20 : 0); score += pts;
           b.classList.add('right'); A.play('good'); HK.fx.burstAt(b, 22);
-          fb.innerHTML = '<b>✔ נכון! +' + pts + '</b>' + (streak > 1 ? ' <span class="streak">🔥 רצף ' + streak + '</span>' : '') + '<br>' + q.e;
+          fb.innerHTML = '<b>✔ נכון! +' + pts + '</b>' + (streak > 1 ? ' <span class="streak">🔥 רצף ' + streak + '</span>' : '') + '<br>' + q.e + (q.s ? '<div class="q-src">📚 ' + q.s + '</div>' : '');
           fb.className = 'q-feedback good';
         } else {
           streak = 0; b.classList.add('wrong'); A.play('bad'); ui.vibrate(60);
-          fb.innerHTML = '<b>✘ לא בדיוק...</b> התשובה הנכונה: <b>' + q.a[q.c] + '</b><br>' + q.e;
+          fb.innerHTML = '<b>✘ לא בדיוק...</b> התשובה הנכונה: <b>' + q.a[q.c] + '</b><br>' + q.e + (q.s ? '<div class="q-src">📚 ' + q.s + '</div>' : '');
           fb.className = 'q-feedback bad';
         }
         root.querySelector('#qscore').textContent = score;
@@ -261,7 +262,7 @@ HK.games = HK.games || {};
       }
       function finish() {
         root.querySelector('#qbar').style.width = '100%';
-        var stars = correct >= 8 ? 3 : correct >= 6 ? 2 : correct >= 4 ? 1 : 0;
+        var n = pool.length, stars = correct >= n ? 3 : correct >= n * 0.75 ? 2 : correct >= n * 0.5 ? 1 : 0;
         api.finish(stars, { text: 'ענית נכון על ' + correct + ' מתוך ' + pool.length + ' שאלות · ניקוד: ' + score, say: 'ענית נכון על ' + correct + ' שאלות' });
       }
       show();

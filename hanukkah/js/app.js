@@ -11,14 +11,14 @@ window.HK = window.HK || {};
   HK.GAME_LIST = [
     { id: 'candles', title: 'הדלקת נרות', desc: 'מדליקים את החנוכייה בסדר הנכון', icon: function () { return icons.candle(); }, levels: 8, medalAt: 8, medal: 'מדליק הנרות', names: function (n) { return 'לילה ' + n; }, color: 'c-gold' },
     { id: 'dreidel', title: 'סביבון', desc: 'סובבו ואספו מטבעות', icon: function () { return icons.dreidel('#2a5bd7', 'ג'); }, levels: 1, medalAt: 1, medal: 'אלוף הסביבון', names: function () { return 'משחק סביבון'; }, color: 'c-blue' },
-    { id: 'quiz', title: 'חידון חנוכה', desc: 'שאלות, ניקוד ומשוב מיידי', icon: function () { return icons.torah(); }, levels: 2, medalAt: 1, medal: 'חכם החנוכה', names: function (n) { return ['מתחילים', 'אלופים'][n - 1]; }, color: 'c-purple' },
+    { id: 'quiz', title: 'חידון חנוכה', desc: 'שאלות, ניקוד ומשוב מיידי', icon: function () { return icons.torah(); }, levels: 3, open: [3], medalAt: 1, medal: 'חכם החנוכה', names: function (n) { return ['מתחילים', 'אלופים', 'תלמידי חכמים'][n - 1]; }, color: 'c-purple' },
     { id: 'memory', title: 'משחק זיכרון', desc: 'מוצאים זוגות של סמלי החג', icon: function () { return icons.sufganiya(); }, levels: 3, medalAt: 1, medal: 'זיכרון של מכבי', names: function (n) { return [4, 6, 8][n - 1] + ' זוגות'; }, color: 'c-pink' },
     { id: 'diff', title: 'מצא את ההבדלים', desc: 'עין חדה כמו של מכבי', icon: function () { return icons.davidstar(); }, levels: 3, medalAt: 1, medal: 'עין חדה', names: function (n) { return [3, 4, 5][n - 1] + ' הבדלים'; }, color: 'c-teal' },
     { id: 'runner', title: 'איסוף מטבעות', desc: 'הרפתקה בדרך לירושלים', icon: function () { return icons.coin(); }, levels: 3, medalAt: 1, medal: 'רץ אל המקדש', names: function (n) { return 'שלב ' + n; }, color: 'c-orange' },
     { id: 'puzzle', title: 'פאזל חנוכה', desc: 'מרכיבים תמונות של החג', icon: function () { return icons.jar(); }, levels: 3, medalAt: 1, medal: 'מרכיב התמונות', names: function (n) { return ['3×3', '4×3', '4×4'][n - 1]; }, color: 'c-green' }
   ];
   function gameById(id) { return HK.GAME_LIST.filter(function (g) { return g.id === id; })[0]; }
-  function levelUnlocked(g, n) { return n === 1 || store.best(g.id + ':' + (n - 1)) > 0; }
+  function levelUnlocked(g, n) { return n === 1 || (g.open && g.open.indexOf(n) >= 0) || store.best(g.id + ':' + (n - 1)) > 0; }
   function gameStars(g) { var t = 0; for (var n = 1; n <= g.levels; n++) t += store.best(g.id + ':' + n); return t; }
 
   /* ---------- התקדמות כללית ---------- */
@@ -172,7 +172,7 @@ window.HK = window.HK || {};
     for (var n = 1; n <= g.levels; n++) (function (n) {
       var un = levelUnlocked(g, n), b = store.best(g.id + ':' + n);
       var stars = '<div class="lv-stars">' + [0, 1, 2].map(function (k) { return '<i class="' + (k < b ? 'on' : '') + '">★</i>'; }).join('') + '</div>';
-      var cell = ui.h('<button class="lv ' + (un ? '' : 'locked') + (b ? ' done' : '') + '" style="animation-delay:' + (n * 0.04) + 's">' +
+      var cell = ui.h('<button class="lv ' + (un ? '' : 'locked') + (b ? ' done' : '') + (g.open && g.open.indexOf(n) >= 0 ? ' lv-scholar' : '') + '" style="animation-delay:' + (n * 0.04) + 's">' +
         (g.id === 'candles' ? '<div class="lv-candles">' + '<i></i>'.repeat(n) + '</div>' : '') +
         '<span class="lv-num">' + (un ? n : '🔒') + '</span><small>' + g.names(n) + '</small>' + stars + '</button>');
       cell.onclick = function () {
