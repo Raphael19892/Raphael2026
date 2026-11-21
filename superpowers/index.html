@@ -15,6 +15,7 @@
      עיצוב כללי
      ========================================================= */
   :root {
+    color-scheme: dark;
     --bg1: #2b1d6b;
     --bg2: #5b2a9e;
     --card: rgba(255,255,255,0.12);
@@ -45,7 +46,8 @@
                 linear-gradient(160deg, var(--bg1), var(--bg2));
   }
   button { font-family: inherit; cursor: pointer; }
-  .app { max-width: 760px; margin: 0 auto; padding: 16px 16px 96px; }
+  .app { max-width: 760px; margin: 0 auto; padding-block: 16px 96px;
+         padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
 
   /* כוכבים ברקע */
   .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
@@ -157,7 +159,7 @@
   .day.today { box-shadow: inset 0 0 0 2px #fff; }
 
   /* כפתור הורים */
-  .parent-btn { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 16px; z-index: 5;
+  .parent-btn { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: calc(16px + env(safe-area-inset-left, 0px)); z-index: 5;
                 border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; font-size: .95rem;
                 background: rgba(0,0,0,.45); color: #fff; backdrop-filter: blur(6px); }
 
@@ -326,6 +328,7 @@
       </div>
       <label for="fPin">החלפת קוד הורים (4 ספרות)</label>
       <input id="fPin" inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="השאירו ריק כדי לא לשנות" />
+      <p class="hint" id="pinFormErr" style="color:#fca5a5"></p>
       <div class="btns" style="justify-content:flex-start">
         <button class="btn danger small" id="resetToday">איפוס היום</button>
         <button class="btn danger small" id="resetAll">איפוס הכל</button>
@@ -335,6 +338,17 @@
     <div class="btns">
       <button class="btn primary" id="saveParent">💾 שמירה</button>
       <button class="btn ghost" data-close="parentOverlay">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- חלון אישור -->
+<div class="overlay" id="confirmOverlay" role="dialog" aria-modal="true" aria-labelledby="confirmText">
+  <div class="modal" style="text-align:center">
+    <h2 id="confirmText"></h2>
+    <div class="btns">
+      <button class="btn danger" id="confirmYes">כן, לאפס</button>
+      <button class="btn ghost" data-close="confirmOverlay">ביטול</button>
     </div>
   </div>
 </div>
@@ -836,7 +850,7 @@
       else if (e.key === 'Backspace') pinKey('⌫');
       else if (e.key === 'Enter') pinKey('✓');
     }
-    if (e.key === 'Escape') ['pinOverlay', 'parentOverlay'].forEach(closeOverlay);
+    if (e.key === 'Escape') ['pinOverlay', 'parentOverlay', 'confirmOverlay'].forEach(closeOverlay);
   });
 
   /* הגדרות הורים */
@@ -880,7 +894,8 @@
 
   $('saveParent').addEventListener('click', () => {
     const newPin = $('fPin').value.trim();
-    if (newPin && !/^\d{4}$/.test(newPin)) { alert('הקוד חייב להיות 4 ספרות'); return; }
+    if (newPin && !/^\d{4}$/.test(newPin)) { $('pinFormErr').textContent = 'הקוד חייב להיות 4 ספרות'; $('fPin').focus(); return; }
+    $('pinFormErr').textContent = '';
     state.childName = $('fName').value.trim();
     state.gender = $('fGender').value;
     state.goal = clampInt($('fGoal').value, 1, 20, 6);
@@ -913,16 +928,18 @@
   $('gemPlus').addEventListener('click', () => adjustGems(1));
   $('gemMinus').addEventListener('click', () => { if (totals().gems > 0) adjustGems(-1); });
 
-  $('resetToday').addEventListener('click', () => {
-    if (!confirm('לאפס את ההפעלות של היום?')) return;
+  let confirmCb = null;
+  function askConfirm(text, cb) { $('confirmText').textContent = text; confirmCb = cb; openOverlay('confirmOverlay'); }
+  $('confirmYes').addEventListener('click', () => { closeOverlay('confirmOverlay'); const cb = confirmCb; confirmCb = null; cb && cb(); });
+
+  $('resetToday').addEventListener('click', () => askConfirm('לאפס את ההפעלות של היום?', () => {
     delete state.days[todayKey()]; save(); renderAll();
-  });
-  $('resetAll').addEventListener('click', () => {
-    if (!confirm('לאפס את כל ההתקדמות, המדליות ואבני החן? (ההגדרות וההפתעות יישמרו)')) return;
+  }));
+  $('resetAll').addEventListener('click', () => askConfirm('לאפס את כל ההתקדמות, המדליות ואבני החן? ההגדרות וההפתעות יישמרו.', () => {
     state.days = {}; state.medals = {}; state.adjust = 0;
     state.surprises.forEach(s => { s.revealed = false; s.given = false; });
     save(); closeOverlay('parentOverlay'); renderAll();
-  });
+  }));
 
   /* =========================================================
      אתחול
