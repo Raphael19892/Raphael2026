@@ -12,9 +12,13 @@
     "dev": "node --watch --disable-warning=ExperimentalWarning server/index.js",
     "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
     "verify-refs": "node scripts/verify-refs.mjs",
-    "sync-usda": "node scripts/sync-usda.mjs"
+    "sync-usda": "node scripts/sync-usda.mjs",
+    "build:artifact": "node scripts/build-artifact.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.12.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.2"
   }
 }

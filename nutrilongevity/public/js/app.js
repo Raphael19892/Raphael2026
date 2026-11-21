@@ -36,7 +36,7 @@ function currentTheme() {
 
 function header() {
   return h('header', { class: 'topbar' },
-    h('a', { class: 'brand', href: '#/home', 'aria-label': 'NutriLongevity AI' },
+    h('a', { class: 'brand', href: '#home', 'aria-label': 'NutriLongevity AI' },
       h('span', { class: 'brand-mark' }, icon('leaf', 18)), h('span', {}, 'NutriLongevity', h('b', {}, ' AI'))),
     h('div', { class: 'top-actions' },
       h('button', { class: 'chip-btn', 'aria-label': t('language'), onclick: () => { setLang(lang() === 'he' ? 'en' : 'he'); store.set('nl_lang', lang()); render(); } }, lang() === 'he' ? 'EN' : 'עב'),
@@ -45,13 +45,14 @@ function header() {
 
 function nav(active) {
   return h('nav', { class: 'bottom-nav', 'aria-label': t('mainNav') },
-    NAV.map(([id, ic]) => h('a', { href: `#/${id}`, class: active === id ? 'active' : '', 'aria-current': active === id ? 'page' : null }, icon(ic, 21), h('span', {}, t(`nav_${id}`)))));
+    NAV.map(([id, ic]) => h('a', { href: `#${id}`, class: active === id ? 'active' : '', 'aria-current': active === id ? 'page' : null }, icon(ic, 21), h('span', {}, t(`nav_${id}`)))));
 }
 
 let renderToken = 0;
 export async function render() {
   const token = ++renderToken;
   let route = (location.hash.replace(/^#\/?/, '').split('?')[0] || 'home');
+  if (route === 'optimize') route = 'dashboard';
   if (!VIEWS[route]) route = 'home';
   if (!state.user && route !== 'auth') route = 'auth';
   else if (state.user && !state.profile && route !== 'onboarding' && route !== 'auth') route = 'onboarding';
@@ -68,14 +69,14 @@ export async function render() {
     await mod.render(view, { rerender: render });
     if (token === renderToken) view.focus({ preventScroll: true });
   } catch (e) {
-    if (e.status === 401) { state.set({ user: null }); location.hash = '#/auth'; return; }
+    if (e.status === 401) { state.set({ user: null }); location.hash = '#auth'; return; }
     console.error(e);
     fill(view, h('div', { class: 'card error-card' }, h('h3', {}, t('errorTitle')), h('p', {}, e.message)));
   }
 }
 
 export function go(route) {
-  if (location.hash === `#/${route}`) render(); else location.hash = `#/${route}`;
+  if (location.hash === `#${route}`) render(); else location.hash = `#${route}`;
 }
 
 async function boot() {

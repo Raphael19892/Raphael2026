@@ -28,7 +28,7 @@ export async function render(view) {
       h('p', { class: 'muted' }, t('homeSub'))),
     flagsList((tg?.flags || []).filter((f) => f.level !== 'info')),
     h('section', { class: 'card' },
-      h('div', { class: 'card-head' }, h('h2', {}, t('todayProgress')), h('a', { href: '#/dashboard', class: 'link' }, t('details'))),
+      h('div', { class: 'card-head' }, h('h2', {}, t('todayProgress')), h('a', { href: '#dashboard', class: 'link' }, t('details'))),
       h('div', { class: 'rings' },
         ring(eaten.kcal, tg.kcal, { label: t('energy'), sub: `${fmt(eaten.kcal)} kcal`, kind: 'range' }),
         ring(eaten.protein, tg.protein, { label: t('protein'), sub: `${fmt(eaten.protein)} g P` }),
@@ -37,7 +37,7 @@ export async function render(view) {
       h('div', { class: 'ring-legend' }, [t('energy'), t('protein'), t('fiber'), t('plantsWeek')].map((l) => h('span', {}, l))),
       !todayItems.length && h('p', { class: 'hint' }, t('nothingLogged'))),
     planDay ? h('section', {},
-      h('div', { class: 'section-head' }, h('h2', {}, t('todaysMenu')), h('a', { href: '#/menu', class: 'link' }, t('openMenu'))),
+      h('div', { class: 'section-head' }, h('h2', {}, t('todaysMenu')), h('a', { href: '#menu', class: 'link' }, t('openMenu'))),
       planned && h('p', { class: 'muted small' }, t('plannedTotals', { kcal: fmt(planned.kcal), p: fmt(planned.protein), f: fmt(planned.fiber) })),
       h('div', { class: 'hscroll' }, planDay.meals.map((m) => {
         const n = sumItems(m.items);
@@ -50,12 +50,12 @@ export async function render(view) {
             h('p', { class: 'muted small' }, `${fmt(n.kcal)} kcal · ${fmt(n.protein)} g P · ${fmt(n.fiber, 1)} g ${t('fiberShort')}`),
             h('button', { class: `btn small ${done ? 'done' : 'primary'}`, disabled: done, onclick: async (e) => { e.currentTarget.disabled = true; await logMeal(m, today); toast(t('logged')); render(fill(view) || view); } },
               icon(done ? 'check' : 'plus', 15), ' ', done ? t('eaten') : t('markEaten'))));
-      }))) : h('section', { class: 'card' }, h('p', {}, t('noPlanToday')), h('a', { class: 'btn primary', href: '#/menu' }, t('createPlan'))),
+      }))) : h('section', { class: 'card' }, h('p', {}, t('noPlanToday')), h('a', { class: 'btn primary', href: '#menu' }, t('createPlan'))),
     h('section', { class: 'quick' },
-      quick('#/scan', 'scan', t('quickScan'), t('quickScanSub')),
-      quick('#/assistant', 'chat', t('quickAsk'), state.status.ai ? t('quickAskSub') : t('offlineAssistant')),
-      quick('#/dashboard?tab=optimize', 'sparkle', t('quickWeekly'), t('quickWeeklySub')),
-      quick('#/research', 'book', t('quickResearch'), t('quickResearchSub'))),
+      quick('#scan', 'scan', t('quickScan'), t('quickScanSub')),
+      quick('#assistant', 'chat', t('quickAsk'), state.status.ai ? t('quickAskSub') : t('offlineAssistant')),
+      quick('#optimize', 'sparkle', t('quickWeekly'), t('quickWeeklySub')),
+      quick('#research', 'book', t('quickResearch'), t('quickResearchSub'))),
     h('p', { class: 'disclaimer' }, icon('info', 16), ' ', t('medicalDisclaimer')));
 }
 

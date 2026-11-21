@@ -41,7 +41,7 @@ export async function render(view, { rerender }) {
       await api('/api/plan/generate', { method: 'POST', body: {} });
       await loadPlan();
       toast(t('planReady'));
-      location.hash = '#/home';
+      location.hash = '#home';
       rerender();
     } catch (e) { toast(e.message, 'err'); sync(); }
   };

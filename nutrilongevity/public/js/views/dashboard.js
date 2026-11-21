@@ -11,8 +11,7 @@ import { foodName, foodEmoji } from './components.js';
 let tab = null;
 
 export async function render(view) {
-  const qs = new URLSearchParams(location.hash.split('?')[1] || '');
-  if (qs.get('tab')) tab = qs.get('tab');
+  if (location.hash === '#optimize') tab = 'optimize';
   tab = tab || 'today';
   const body = h('div');
   const draw = async () => {
@@ -158,7 +157,7 @@ async function optimizeTab(body) {
 }
 
 function reportView(a, fresh) {
-  if (!a.nDays) return h('div', { class: 'card' }, h('p', {}, t('optNoData')), fresh && h('a', { class: 'btn', href: '#/menu' }, t('viewNewPlan')));
+  if (!a.nDays) return h('div', { class: 'card' }, h('p', {}, t('optNoData')), fresh && h('a', { class: 'btn', href: '#menu' }, t('viewNewPlan')));
   const block = (title, arr, cls) => arr.length ? h('div', { class: `card ${cls}` }, h('h3', {}, title),
     h('ul', { class: 'sugg' }, arr.map((g) => h('li', {}, h('p', {}, g[lang()] || g.en), h('div', { class: 'ref-row' }, g.refs.map(refChip)))))) : null;
   return h('div', {},
@@ -166,5 +165,5 @@ function reportView(a, fresh) {
     block(t('excesses'), a.excesses, 'warn-card'),
     block(t('gaps'), a.gaps, ''),
     !a.gaps.length && !a.excesses.length && h('div', { class: 'card' }, h('p', {}, t('allOnTrack'))),
-    h('div', { class: 'card good-card' }, h('h3', {}, t('newPlanGenerated')), h('p', { class: 'muted' }, t('newPlanExplain')), h('a', { class: 'btn primary', href: '#/menu' }, t('viewNewPlan'))));
+    h('div', { class: 'card good-card' }, h('h3', {}, t('newPlanGenerated')), h('p', { class: 'muted' }, t('newPlanExplain')), h('a', { class: 'btn primary', href: '#menu' }, t('viewNewPlan'))));
 }

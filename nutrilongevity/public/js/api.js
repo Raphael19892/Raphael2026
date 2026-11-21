@@ -34,3 +34,8 @@ export function savePlanDebounced() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { if (state.plan?.id) api(`/api/plan/${state.plan.id}`, { method: 'PUT', body: { plan: state.plan } }).catch(() => {}); }, 400);
 }
+
+/** Download the user's data (server version: the browser handles the attachment response). */
+export async function exportData(format) {
+  location.href = `/api/export?format=${format === 'csv' ? 'csv' : 'json'}`;
+}

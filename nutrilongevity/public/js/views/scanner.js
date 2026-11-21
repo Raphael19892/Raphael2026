@@ -124,6 +124,10 @@ function stopCamera() {
 }
 
 function barcodeTab(body) {
+  if (state.status.barcode === false) {
+    add(body, h('div', { class: 'card scan-card' }, h('div', { class: 'scan-illu' }, icon('scan', 46)), h('p', {}, t('barcodeUnavailable'))));
+    return;
+  }
   const status = h('p', { class: 'muted small' });
   const video = h('video', { playsinline: true, muted: true, class: 'cam', hidden: true });
   const code = h('input', { type: 'text', inputmode: 'numeric', pattern: '[0-9]*', placeholder: t('barcodePh'), 'aria-label': t('barcodePh') });
@@ -203,8 +207,8 @@ function labelTab(body) {
     h('div', { class: 'card scan-card' },
       h('div', { class: 'scan-illu' }, icon('upload', 42)),
       h('p', {}, t('labelIntro')),
-      h('button', { class: 'btn primary block', disabled: !state.status.ai, onclick: () => file.click() }, icon('camera', 17), ' ', t('uploadLabel')),
-      !state.status.ai && h('p', { class: 'hint' }, t('labelNeedsAi')),
+      h('button', { class: 'btn primary block', disabled: !(state.status.labelAi ?? state.status.ai), onclick: () => file.click() }, icon('camera', 17), ' ', t('uploadLabel')),
+      !(state.status.labelAi ?? state.status.ai) && h('p', { class: 'hint' }, t('labelNeedsAi')),
       file, status),
     manual);
 }

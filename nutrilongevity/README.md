@@ -25,6 +25,17 @@ Requires **Node.js ≥ 22.5** (it uses the built-in `node:sqlite`).
 
 To install it on Android, open the site in Chrome and choose **Add to Home screen**. Barcode scanning uses the camera through the browser `BarcodeDetector` API, which Chrome on Android supports. In other browsers you can type the barcode instead.
 
+## Published version on claude.ai
+
+`npm run build:artifact` bundles the whole app into `dist/nutrilongevity.html`, with `public/js/api.js` swapped for `artifact/api.js`. That file answers the same API routes inside the page, using the same shared modules. The published page:
+
+- stores each signed-in person's data privately in the artifact database (`data/users/<id>/`), so it follows them across devices
+- uses Claude through the page's `sample` capability for the assistant and for reading label photos
+- exports data through the `downloads` capability
+- uses claude.ai sign-in instead of email/password accounts
+
+Not available there: barcode lookup (no camera access, and Open Food Facts can't be reached from the page) and live USDA search. The self-hosted server version keeps both.
+
 ## Features
 
 - **Onboarding and profile.** Collects age, sex, height and weight, activity, strength training, schedule, number of meals, diet, allergies, budget, cooking time, health goals, conditions and medications. You can edit all of it later.

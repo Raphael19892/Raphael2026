@@ -16,7 +16,7 @@ export async function render(view, { rerender }) {
         await api(`/api/auth/${mode === 'login' ? 'login' : 'register'}`, { method: 'POST', body: { email: email.value.trim(), password: pw.value, name: name.value.trim() } });
         await loadMe();
         if (state.profile) await loadPlan();
-        location.hash = state.profile ? '#/home' : '#/onboarding';
+        location.hash = state.profile ? '#home' : '#onboarding';
         rerender();
       } catch (ex) { err.textContent = ex.message; btn.disabled = false; }
     };

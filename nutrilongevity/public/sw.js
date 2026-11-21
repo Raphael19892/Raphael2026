@@ -4,7 +4,7 @@ const SHELL = ['/', '/index.html', '/styles.css', '/manifest.webmanifest', '/ico
   '/js/app.js', '/js/ui.js', '/js/i18n.js', '/js/api.js', '/js/charts.js',
   '/js/views/home.js', '/js/views/menu.js', '/js/views/scanner.js', '/js/views/dashboard.js', '/js/views/research.js',
   '/js/views/assistant.js', '/js/views/profile.js', '/js/views/onboarding.js', '/js/views/auth.js', '/js/views/components.js', '/js/views/profileForm.js',
-  '/shared/foods.js', '/shared/engine.js', '/shared/nutrition.js', '/shared/planner.js', '/shared/templates.js', '/shared/nova.js', '/shared/evidence.js', '/shared/analysis.js'];
+  '/shared/foods.js', '/shared/engine.js', '/shared/nutrition.js', '/shared/planner.js', '/shared/templates.js', '/shared/nova.js', '/shared/evidence.js', '/shared/analysis.js', '/shared/assistant.js'];
 
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== CACHE).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });
