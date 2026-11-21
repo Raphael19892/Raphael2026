@@ -425,9 +425,9 @@ window.HK = window.HK || {};
       c.fillStyle = '#cfe6ff'; c.font = '30px Rubik, Arial'; c.fillText('על השלמת כל המשחקים, הסיפורים והלימוד בעולם החנוכה!', W / 2, 665);
       c.fillStyle = '#fff'; c.font = '32px Rubik, Arial'; c.fillText('⭐ ' + store.totalStars() + ' כוכבים   ·   🏅 ' + medalCount() + ' מדליות', W / 2, 725);
       c.fillStyle = '#9fb8ff'; c.font = '28px Rubik, Arial'; c.fillText(hebDate(), W / 2, 780);
-      var a = document.createElement('a'); a.download = 'תעודת-אלוף-החנוכה.png'; a.href = cv.toDataURL('image/png');
-      document.body.appendChild(a); a.click(); a.remove();
-      ui.toast('💾 התעודה נשמרה!');
+      var url = cv.toDataURL('image/png');
+      try { var a = document.createElement('a'); a.download = 'תעודת-אלוף-החנוכה.png'; a.href = url; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { }
+      ui.modal({ icon: '🎓', title: 'התעודה שלך', html: '<img src="' + url + '" alt="תעודת אלוף החנוכה" style="width:100%;border-radius:12px"><p class="rtext">אם ההורדה לא התחילה: לחיצה ארוכה על התמונה ← "שמירת תמונה"</p>', buttons: [{ label: 'סגור' }] });
     };
     img.src = HK.art.toDataURL(HK.art.chanukiah().replace('class="chanukiah"', 'width="420" height="370"'));
   }
