@@ -1,0 +1,409 @@
+// NutriLongevity AI — local food composition table.
+//
+// Values are per 100 g edible portion.
+// PROVENANCE (shown to the user for every food):
+//   status 'usda-transcribed' : values transcribed from USDA FoodData Central, SR Legacy
+//                               (description in `usda`). They are analytical/measured
+//                               reference values, but were entered by hand and have not
+//                               been machine-verified against the live API. Run
+//                               `npm run sync-usda` with FDC_API_KEY to verify/refresh.
+//   status 'usda-verified'    : refreshed from the FDC API by scripts/sync-usda.mjs.
+//   status 'label-estimate'   : typical values from retail product labels (no USDA entry);
+//                               treat as estimates.
+// Polyphenols (`poly`, mg/100 g, Folin–Ciocalteu total polyphenols) are APPROXIMATE values from
+// the Phenol-Explorer database as summarised by Pérez-Jiménez et al., Eur J Clin Nutr 2010
+// (doi:10.1038/ejcn.2010.221). They vary widely with cultivar, ripeness and processing and are
+// shown only where a reference value exists; `null` = no reliable data (not zero).
+
+export const NUTRIENT_KEYS = [
+  'kcal', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sugars', 'sodium',
+  'potassium', 'calcium', 'iron', 'magnesium', 'vitC', 'folate', 'vitB12', 'vitD',
+];
+
+export const NUTRIENT_META = {
+  kcal: { unit: 'kcal', dp: 0 },
+  protein: { unit: 'g', dp: 1 },
+  carbs: { unit: 'g', dp: 1 },
+  fat: { unit: 'g', dp: 1 },
+  satFat: { unit: 'g', dp: 1 },
+  fiber: { unit: 'g', dp: 1 },
+  sugars: { unit: 'g', dp: 1 },
+  addedSugar: { unit: 'g', dp: 1 },
+  sodium: { unit: 'mg', dp: 0 },
+  potassium: { unit: 'mg', dp: 0 },
+  calcium: { unit: 'mg', dp: 0 },
+  iron: { unit: 'mg', dp: 1 },
+  magnesium: { unit: 'mg', dp: 0 },
+  vitC: { unit: 'mg', dp: 0 },
+  folate: { unit: 'µg', dp: 0 },
+  vitB12: { unit: 'µg', dp: 1 },
+  vitD: { unit: 'µg', dp: 1 },
+  polyphenols: { unit: 'mg', dp: 0 },
+};
+
+// Tags drive dashboard indicators and the gut-health module.
+// plant     : counts toward weekly plant diversity (key = species/plant identity)
+// fv        : fruit or vegetable (counts toward fruit & vegetable grams; excludes potatoes per WHO)
+// legume, wholegrain, refinedgrain, nut, seed, oliveoil, fermented, prebiotic, rs (resistant starch
+// source, esp. when cooked & cooled), polyphenol, leafy, crucifer, berry, fish, oilyfish, poultry,
+// dairy, egg, soy, addedsugar
+const F = (id, en, he, emoji, group, v, o = {}) => {
+  const per100 = {};
+  NUTRIENT_KEYS.forEach((k, i) => { per100[k] = v[i]; });
+  per100.addedSugar = o.addedSugar ?? 0;
+  return {
+    id, name: { en, he }, emoji, group, per100,
+    tags: o.tags || [], plant: o.plant || null, nova: o.nova ?? 1,
+    allergens: o.allergens || [], animal: o.animal || null, // 'meat'|'poultry'|'fish'|'dairy'|'egg'
+    unit: o.unit || null, usda: o.usda || null, status: o.status || 'usda-transcribed',
+    poly: o.poly ?? null, swap: o.swap || null, cost: o.cost || 2, wgServing: o.wgServing || null,
+    note: o.note || null, fdcId: o.fdcId || null,
+  };
+};
+
+export const FOODS = [
+  // ── Whole grains & starchy foods ─────────────────────────────────────────
+  F('oats', 'Rolled oats (dry)', 'שיבולת שועל (יבשה)', '🥣', 'grains',
+    [379, 13.2, 67.7, 6.5, 1.11, 10.1, 1.0, 6, 362, 52, 4.25, 138, 0, 32, 0, 0],
+    { tags: ['wholegrain', 'prebiotic'], plant: 'oat', allergens: ['gluten*'], unit: ['cup', 81], swap: 'grain', cost: 1, wgServing: 30,
+      usda: 'Cereals, oats, regular and quick, not fortified, dry',
+      note: 'Oats are naturally gluten-free but often cross-contaminated; choose certified gluten-free oats if you have coeliac disease. Beta-glucan source.' }),
+  F('quinoa', 'Quinoa (cooked)', 'קינואה (מבושלת)', '🍚', 'grains',
+    [120, 4.4, 21.3, 1.9, 0.23, 2.8, 0.9, 7, 172, 17, 1.49, 64, 0, 42, 0, 0],
+    { tags: ['wholegrain'], plant: 'quinoa', unit: ['cup', 185], swap: 'grain', cost: 3, wgServing: 90, usda: 'Quinoa, cooked' }),
+  F('brown_rice', 'Brown rice (cooked)', 'אורז מלא (מבושל)', '🍚', 'grains',
+    [123, 2.7, 25.6, 1.0, 0.26, 1.6, 0.2, 4, 86, 3, 0.56, 39, 0, 9, 0, 0],
+    { tags: ['wholegrain', 'rs'], plant: 'rice', unit: ['cup', 195], swap: 'grain', cost: 1, wgServing: 90, usda: 'Rice, brown, long-grain, cooked' }),
+  F('white_rice', 'White rice (cooked)', 'אורז לבן (מבושל)', '🍚', 'grains',
+    [130, 2.7, 28.2, 0.3, 0.08, 0.4, 0.1, 1, 35, 10, 0.2, 12, 0, 3, 0, 0],
+    { tags: ['refinedgrain', 'rs'], plant: 'rice', unit: ['cup', 158], swap: 'grain', cost: 1, usda: 'Rice, white, long-grain, regular, cooked, unenriched' }),
+  F('bulgur', 'Bulgur (cooked)', 'בורגול (מבושל)', '🌾', 'grains',
+    [83, 3.1, 18.6, 0.2, 0.04, 4.5, 0.1, 5, 68, 10, 0.96, 32, 0, 18, 0, 0],
+    { tags: ['wholegrain'], plant: 'wheat', allergens: ['gluten'], unit: ['cup', 182], swap: 'grain', cost: 1, wgServing: 90, usda: 'Bulgur, cooked' }),
+  F('barley', 'Pearl barley (cooked)', 'גריסי פנינה (מבושלים)', '🌾', 'grains',
+    [123, 2.3, 28.2, 0.4, 0.09, 3.8, 0.3, 3, 93, 11, 1.33, 22, 0, 16, 0, 0],
+    { tags: ['prebiotic', 'rs'], plant: 'barley', allergens: ['gluten'], unit: ['cup', 157], swap: 'grain', cost: 1, usda: 'Barley, pearled, cooked',
+      note: 'Pearling removes part of the bran, so it is not counted as a whole grain here, but it still provides beta-glucan.' }),
+  F('buckwheat', 'Buckwheat groats (cooked)', 'כוסמת (מבושלת)', '🌾', 'grains',
+    [92, 3.4, 19.9, 0.6, 0.13, 2.7, 0.9, 4, 88, 7, 0.8, 51, 0, 14, 0, 0],
+    { tags: ['wholegrain'], plant: 'buckwheat', unit: ['cup', 168], swap: 'grain', cost: 2, wgServing: 90, usda: 'Buckwheat groats, roasted, cooked' }),
+  F('ww_bread', 'Whole-wheat bread', 'לחם מחיטה מלאה', '🍞', 'grains',
+    [247, 13.0, 41.3, 3.4, 0.72, 6.8, 5.6, 450, 254, 161, 2.47, 76, 0, 42, 0, 0],
+    { tags: ['wholegrain'], plant: 'wheat', nova: 3, allergens: ['gluten'], unit: ['slice', 32], swap: 'bread', cost: 1, wgServing: 32,
+      usda: 'Bread, whole-wheat, commercially prepared',
+      note: 'NOVA 3 if made only from flour, water, yeast and salt. Many packaged loaves contain emulsifiers/additives and are NOVA 4 — check the label.' }),
+  F('ww_pasta', 'Whole-wheat pasta (cooked)', 'פסטה מחיטה מלאה (מבושלת)', '🍝', 'grains',
+    [124, 5.3, 26.5, 0.5, 0.1, 4.5, 0.8, 3, 44, 15, 1.06, 30, 0, 5, 0, 0],
+    { tags: ['wholegrain', 'rs'], plant: 'wheat', allergens: ['gluten'], unit: ['cup', 140], swap: 'grain', cost: 1, wgServing: 75, usda: 'Spaghetti, whole-wheat, cooked' }),
+  F('potato', 'Potato, boiled in skin', 'תפוח אדמה מבושל בקליפה', '🥔', 'starchy',
+    [87, 1.9, 20.1, 0.1, 0.03, 1.8, 0.9, 4, 379, 5, 0.31, 22, 13, 10, 0, 0],
+    { tags: ['rs'], plant: 'potato', unit: ['medium', 173], swap: 'starch', cost: 1, usda: 'Potatoes, boiled, cooked in skin, flesh, without salt',
+      note: 'Cooking then cooling potatoes increases resistant starch (retrogradation).' }),
+  F('sweet_potato', 'Sweet potato, baked', 'בטטה אפויה', '🍠', 'starchy',
+    [90, 2.0, 20.7, 0.2, 0.05, 3.3, 6.5, 36, 475, 38, 0.69, 27, 19.6, 6, 0, 0],
+    { tags: ['fv'], plant: 'sweet potato', unit: ['medium', 114], swap: 'starch', cost: 1, usda: 'Sweet potato, cooked, baked in skin, flesh, without salt' }),
+
+  // ── Legumes ──────────────────────────────────────────────────────────────
+  F('lentils', 'Lentils (cooked)', 'עדשים (מבושלות)', '🫘', 'legumes',
+    [116, 9.0, 20.1, 0.4, 0.05, 7.9, 1.8, 2, 369, 19, 3.33, 36, 1.5, 181, 0, 0],
+    { tags: ['legume', 'prebiotic', 'rs'], plant: 'lentil', unit: ['cup', 198], swap: 'legume', cost: 1, usda: 'Lentils, mature seeds, cooked, boiled, without salt' }),
+  F('chickpeas', 'Chickpeas (cooked)', 'חומוס גרגירים (מבושל)', '🫘', 'legumes',
+    [164, 8.9, 27.4, 2.6, 0.27, 7.6, 4.8, 7, 291, 49, 2.89, 48, 1.3, 172, 0, 0],
+    { tags: ['legume', 'prebiotic', 'rs'], plant: 'chickpea', unit: ['cup', 164], swap: 'legume', cost: 1, usda: 'Chickpeas (garbanzo beans, bengal gram), mature seeds, cooked, boiled, without salt' }),
+  F('black_beans', 'Black beans (cooked)', 'שעועית שחורה (מבושלת)', '🫘', 'legumes',
+    [132, 8.9, 23.7, 0.5, 0.14, 8.7, 0.3, 1, 355, 27, 2.1, 70, 0, 149, 0, 0],
+    { tags: ['legume', 'prebiotic', 'rs', 'polyphenol'], plant: 'black bean', unit: ['cup', 172], swap: 'legume', cost: 1, usda: 'Beans, black, mature seeds, cooked, boiled, without salt' }),
+  F('white_beans', 'White (navy) beans (cooked)', 'שעועית לבנה (מבושלת)', '🫘', 'legumes',
+    [140, 8.2, 26.1, 0.6, 0.15, 10.5, 0.4, 0, 389, 69, 2.36, 53, 0.9, 140, 0, 0],
+    { tags: ['legume', 'prebiotic', 'rs'], plant: 'navy bean', unit: ['cup', 182], swap: 'legume', cost: 1, usda: 'Beans, navy, mature seeds, cooked, boiled, without salt' }),
+  F('kidney_beans', 'Red kidney beans (cooked)', 'שעועית אדומה (מבושלת)', '🫘', 'legumes',
+    [127, 8.7, 22.8, 0.5, 0.07, 6.4, 0.3, 1, 403, 35, 2.94, 45, 1.2, 130, 0, 0],
+    { tags: ['legume', 'prebiotic', 'rs'], plant: 'kidney bean', unit: ['cup', 177], swap: 'legume', cost: 1, usda: 'Beans, kidney, red, mature seeds, cooked, boiled, without salt' }),
+  F('edamame', 'Edamame (prepared)', 'אדממה (מבושל)', '🫛', 'legumes',
+    [121, 11.9, 8.9, 5.2, 0.62, 5.2, 2.2, 6, 436, 63, 2.27, 64, 6.1, 311, 0, 0],
+    { tags: ['legume', 'soy'], plant: 'soybean', allergens: ['soy'], unit: ['cup', 155], swap: 'legume', cost: 2, usda: 'Edamame, frozen, prepared' }),
+  F('green_peas', 'Green peas (cooked)', 'אפונה ירוקה (מבושלת)', '🫛', 'legumes',
+    [78, 5.2, 14.3, 0.3, 0.05, 5.5, 5.9, 3, 110, 24, 1.52, 22, 9.9, 59, 0, 0],
+    { tags: ['legume', 'fv'], plant: 'pea', unit: ['cup', 160], swap: 'legume', cost: 1, usda: 'Peas, green, frozen, cooked, boiled, drained, without salt' }),
+  F('tofu', 'Tofu, firm (calcium-set)', 'טופו קשה (מועשר סידן)', '🧈', 'legumes',
+    [144, 17.3, 2.8, 8.7, 1.26, 2.3, 0.6, 14, 237, 683, 2.66, 58, 0.2, 29, 0, 0],
+    { tags: ['legume', 'soy'], plant: 'soybean', nova: 3, allergens: ['soy'], unit: ['block 1/4', 120], swap: 'protein', cost: 2,
+      usda: 'Tofu, raw, firm, prepared with calcium sulfate' }),
+  F('hummus', 'Hummus (commercial)', 'חומוס ממרח (מסחרי)', '🥙', 'legumes',
+    [166, 7.9, 14.3, 9.6, 1.44, 6.0, 0.3, 379, 228, 38, 2.44, 71, 0, 83, 0, 0],
+    { tags: ['legume'], plant: 'chickpea', nova: 3, allergens: ['sesame'], unit: ['tbsp', 15], swap: 'spread', cost: 2, usda: 'Hummus, commercial',
+      note: 'Some commercial hummus contains preservatives/stabilisers (NOVA 4). Check the label.' }),
+
+  // ── Vegetables ───────────────────────────────────────────────────────────
+  F('spinach', 'Spinach (raw)', 'תרד (טרי)', '🥬', 'vegetables',
+    [23, 2.9, 3.6, 0.4, 0.06, 2.2, 0.4, 79, 558, 99, 2.71, 79, 28.1, 194, 0, 0],
+    { tags: ['fv', 'leafy', 'polyphenol'], plant: 'spinach', unit: ['cup', 30], swap: 'leafy', cost: 2, poly: 119, usda: 'Spinach, raw',
+      note: 'High in vitamin K — people on warfarin should keep intake consistent and consult their clinician.' }),
+  F('kale', 'Kale (raw)', 'קייל (טרי)', '🥬', 'vegetables',
+    [35, 2.9, 4.4, 1.5, 0.18, 4.1, 1.0, 53, 348, 254, 1.6, 33, 93.4, 62, 0, 0],
+    { tags: ['fv', 'leafy', 'crucifer'], plant: 'kale', unit: ['cup', 21], swap: 'leafy', cost: 2, usda: 'Kale, raw',
+      note: 'Very high in vitamin K — relevant for warfarin users.' }),
+  F('arugula', 'Arugula / rocket', 'ארוגולה', '🥗', 'vegetables',
+    [25, 2.6, 3.7, 0.7, 0.09, 1.6, 2.1, 27, 369, 160, 1.46, 47, 15, 97, 0, 0],
+    { tags: ['fv', 'leafy', 'crucifer'], plant: 'arugula', unit: ['cup', 20], swap: 'leafy', cost: 2, usda: 'Arugula, raw' }),
+  F('romaine', 'Romaine lettuce', 'חסה רומית', '🥬', 'vegetables',
+    [17, 1.2, 3.3, 0.3, 0.04, 2.1, 1.2, 8, 247, 33, 0.97, 14, 4, 136, 0, 0],
+    { tags: ['fv', 'leafy'], plant: 'lettuce', unit: ['cup', 47], swap: 'leafy', cost: 1, usda: 'Lettuce, cos or romaine, raw' }),
+  F('parsley', 'Parsley (fresh)', 'פטרוזיליה', '🌿', 'vegetables',
+    [36, 3.0, 6.3, 0.8, 0.13, 3.3, 0.9, 56, 554, 138, 6.2, 50, 133, 152, 0, 0],
+    { tags: ['fv', 'leafy', 'polyphenol'], plant: 'parsley', unit: ['tbsp', 4], swap: 'herb', cost: 1, usda: 'Parsley, fresh' }),
+  F('broccoli', 'Broccoli (raw)', 'ברוקולי', '🥦', 'vegetables',
+    [34, 2.8, 6.6, 0.4, 0.04, 2.6, 1.7, 33, 316, 47, 0.73, 21, 89.2, 63, 0, 0],
+    { tags: ['fv', 'crucifer'], plant: 'broccoli', unit: ['cup', 91], swap: 'veg', cost: 2, usda: 'Broccoli, raw' }),
+  F('cauliflower', 'Cauliflower (raw)', 'כרובית', '🥦', 'vegetables',
+    [25, 1.9, 5.0, 0.3, 0.13, 2.0, 1.9, 30, 299, 22, 0.42, 15, 48.2, 57, 0, 0],
+    { tags: ['fv', 'crucifer'], plant: 'cauliflower', unit: ['cup', 107], swap: 'veg', cost: 2, usda: 'Cauliflower, raw' }),
+  F('red_cabbage', 'Red cabbage (raw)', 'כרוב סגול', '🥬', 'vegetables',
+    [31, 1.4, 7.4, 0.2, 0.02, 2.1, 3.8, 27, 243, 45, 0.8, 16, 57, 18, 0, 0],
+    { tags: ['fv', 'crucifer', 'polyphenol'], plant: 'red cabbage', unit: ['cup', 89], swap: 'veg', cost: 1, usda: 'Cabbage, red, raw' }),
+  F('tomato', 'Tomato', 'עגבנייה', '🍅', 'vegetables',
+    [18, 0.9, 3.9, 0.2, 0.03, 1.2, 2.6, 5, 237, 10, 0.27, 11, 13.7, 15, 0, 0],
+    { tags: ['fv'], plant: 'tomato', unit: ['medium', 123], swap: 'veg', cost: 1, usda: 'Tomatoes, red, ripe, raw, year round average' }),
+  F('cucumber', 'Cucumber (with peel)', 'מלפפון', '🥒', 'vegetables',
+    [15, 0.7, 3.6, 0.1, 0.04, 0.5, 1.7, 2, 147, 16, 0.28, 13, 2.8, 7, 0, 0],
+    { tags: ['fv'], plant: 'cucumber', unit: ['medium', 201], swap: 'veg', cost: 1, usda: 'Cucumber, with peel, raw' }),
+  F('carrot', 'Carrot (raw)', 'גזר', '🥕', 'vegetables',
+    [41, 0.9, 9.6, 0.2, 0.04, 2.8, 4.7, 69, 320, 33, 0.3, 12, 5.9, 19, 0, 0],
+    { tags: ['fv'], plant: 'carrot', unit: ['medium', 61], swap: 'veg', cost: 1, usda: 'Carrots, raw' }),
+  F('red_pepper', 'Red bell pepper', 'פלפל אדום', '🫑', 'vegetables',
+    [31, 1.0, 6.0, 0.3, 0.03, 2.1, 4.2, 4, 211, 7, 0.43, 12, 127.7, 46, 0, 0],
+    { tags: ['fv'], plant: 'bell pepper', unit: ['medium', 119], swap: 'veg', cost: 2, usda: 'Peppers, sweet, red, raw' }),
+  F('onion', 'Onion', 'בצל', '🧅', 'vegetables',
+    [40, 1.1, 9.3, 0.1, 0.04, 1.7, 4.2, 4, 146, 23, 0.21, 10, 7.4, 19, 0, 0],
+    { tags: ['fv', 'prebiotic'], plant: 'onion', unit: ['medium', 110], swap: 'allium', cost: 1, usda: 'Onions, raw' }),
+  F('garlic', 'Garlic', 'שום', '🧄', 'vegetables',
+    [149, 6.4, 33.1, 0.5, 0.09, 2.1, 1.0, 17, 401, 181, 1.7, 25, 31.2, 3, 0, 0],
+    { tags: ['prebiotic'], plant: 'garlic', unit: ['clove', 3], swap: 'allium', cost: 1, usda: 'Garlic, raw' }),
+  F('leek', 'Leek', 'כרישה', '🥬', 'vegetables',
+    [61, 1.5, 14.2, 0.3, 0.04, 1.8, 3.9, 20, 180, 59, 2.1, 28, 12, 64, 0, 0],
+    { tags: ['fv', 'prebiotic'], plant: 'leek', unit: ['medium', 89], swap: 'allium', cost: 2, usda: 'Leeks, (bulb and lower leaf-portion), raw' }),
+  F('asparagus', 'Asparagus', 'אספרגוס', '🌱', 'vegetables',
+    [20, 2.2, 3.9, 0.1, 0.04, 2.1, 1.9, 2, 202, 24, 2.14, 14, 5.6, 52, 0, 0],
+    { tags: ['fv', 'prebiotic'], plant: 'asparagus', unit: ['spear', 16], swap: 'veg', cost: 3, usda: 'Asparagus, raw' }),
+  F('zucchini', 'Zucchini', 'קישוא', '🥒', 'vegetables',
+    [17, 1.2, 3.1, 0.3, 0.08, 1.0, 2.5, 8, 261, 16, 0.37, 18, 17.9, 24, 0, 0],
+    { tags: ['fv'], plant: 'zucchini', unit: ['medium', 196], swap: 'veg', cost: 1, usda: 'Squash, summer, zucchini, includes skin, raw' }),
+  F('eggplant', 'Eggplant', 'חציל', '🍆', 'vegetables',
+    [25, 1.0, 5.9, 0.2, 0.03, 3.0, 3.5, 2, 229, 9, 0.23, 14, 2.2, 22, 0, 0],
+    { tags: ['fv', 'polyphenol'], plant: 'eggplant', unit: ['cup', 82], swap: 'veg', cost: 1, usda: 'Eggplant, raw' }),
+  F('mushrooms', 'White mushrooms', 'פטריות שמפיניון', '🍄', 'vegetables',
+    [22, 3.1, 3.3, 0.3, 0.05, 1.0, 2.0, 5, 318, 3, 0.5, 9, 2.1, 17, 0.04, 0.2],
+    { tags: ['fv'], plant: 'mushroom', unit: ['cup', 70], swap: 'veg', cost: 2, usda: 'Mushrooms, white, raw' }),
+  F('beetroot', 'Beetroot', 'סלק', '🟣', 'vegetables',
+    [43, 1.6, 9.6, 0.2, 0.03, 2.8, 6.8, 78, 325, 16, 0.8, 23, 4.9, 109, 0, 0],
+    { tags: ['fv'], plant: 'beet', unit: ['medium', 82], swap: 'veg', cost: 1, usda: 'Beets, raw' }),
+  F('sauerkraut', 'Sauerkraut', 'כרוב כבוש', '🥬', 'fermented',
+    [19, 0.9, 4.3, 0.1, 0.03, 2.9, 1.8, 661, 170, 30, 1.47, 13, 14.7, 24, 0, 0],
+    { tags: ['fv', 'fermented', 'crucifer'], plant: 'cabbage', nova: 3, unit: ['tbsp', 15], swap: 'ferment', cost: 1, usda: 'Sauerkraut, canned, solids and liquids',
+      note: 'Canned/pasteurised sauerkraut contains no live cultures; refrigerated unpasteurised versions do. High in sodium.' }),
+  F('kimchi', 'Kimchi', 'קימצ׳י', '🌶️', 'fermented',
+    [15, 1.1, 2.4, 0.5, 0.07, 1.6, 1.1, 498, 151, 33, 2.5, 14, 0, 52, 0, 0],
+    { tags: ['fv', 'fermented', 'crucifer'], plant: 'napa cabbage', nova: 3, allergens: ['fish*'], unit: ['tbsp', 15], swap: 'ferment', cost: 2, usda: 'Cabbage, kimchi',
+      note: 'Traditional recipes may contain fish sauce or shrimp. Vitamin C not reported in the source entry. High in sodium.' }),
+  F('avocado', 'Avocado', 'אבוקדו', '🥑', 'fruits',
+    [160, 2.0, 8.5, 14.7, 2.13, 6.7, 0.7, 7, 485, 12, 0.55, 29, 10, 81, 0, 0],
+    { tags: ['fv'], plant: 'avocado', unit: ['half', 68], swap: 'fat', cost: 3, usda: 'Avocados, raw, all commercial varieties' }),
+  F('olives', 'Black olives (ripe, canned)', 'זיתים שחורים', '🫒', 'fats',
+    [115, 0.8, 6.3, 10.7, 1.42, 3.2, 0, 735, 8, 88, 3.3, 4, 0.9, 0, 0, 0],
+    { tags: ['polyphenol'], plant: 'olive', nova: 3, unit: ['olive', 4], swap: 'fat', cost: 2, poly: 569, usda: 'Olives, ripe, canned (small-extra large)',
+      note: 'Brined olives are high in sodium.' }),
+
+  // ── Fruits ───────────────────────────────────────────────────────────────
+  F('apple', 'Apple (with skin)', 'תפוח עץ (עם קליפה)', '🍎', 'fruits',
+    [52, 0.3, 13.8, 0.2, 0.03, 2.4, 10.4, 1, 107, 6, 0.12, 5, 4.6, 3, 0, 0],
+    { tags: ['fv', 'polyphenol', 'prebiotic'], plant: 'apple', unit: ['medium', 182], swap: 'fruit', cost: 1, poly: 136, usda: 'Apples, raw, with skin' }),
+  F('banana', 'Banana', 'בננה', '🍌', 'fruits',
+    [89, 1.1, 22.8, 0.3, 0.11, 2.6, 12.2, 1, 358, 5, 0.26, 27, 8.7, 20, 0, 0],
+    { tags: ['fv', 'prebiotic', 'rs'], plant: 'banana', unit: ['medium', 118], swap: 'fruit', cost: 1, usda: 'Bananas, raw',
+      note: 'Slightly green bananas contain more resistant starch.' }),
+  F('orange', 'Orange', 'תפוז', '🍊', 'fruits',
+    [47, 0.9, 11.8, 0.1, 0.02, 2.4, 9.4, 0, 181, 40, 0.1, 10, 53.2, 30, 0, 0],
+    { tags: ['fv', 'polyphenol'], plant: 'orange', unit: ['medium', 131], swap: 'fruit', cost: 1, usda: 'Oranges, raw, all commercial varieties' }),
+  F('blueberries', 'Blueberries', 'אוכמניות', '🫐', 'fruits',
+    [57, 0.7, 14.5, 0.3, 0.03, 2.4, 10.0, 1, 77, 6, 0.28, 6, 9.7, 6, 0, 0],
+    { tags: ['fv', 'berry', 'polyphenol'], plant: 'blueberry', unit: ['cup', 148], swap: 'berry', cost: 3, poly: 560, usda: 'Blueberries, raw' }),
+  F('strawberries', 'Strawberries', 'תותים', '🍓', 'fruits',
+    [32, 0.7, 7.7, 0.3, 0.02, 2.0, 4.9, 1, 153, 16, 0.41, 13, 58.8, 24, 0, 0],
+    { tags: ['fv', 'berry', 'polyphenol'], plant: 'strawberry', unit: ['cup', 152], swap: 'berry', cost: 2, poly: 235, usda: 'Strawberries, raw' }),
+  F('raspberries', 'Raspberries', 'פטל', '🍇', 'fruits',
+    [52, 1.2, 11.9, 0.7, 0.02, 6.5, 4.4, 1, 151, 25, 0.69, 22, 26.2, 21, 0, 0],
+    { tags: ['fv', 'berry', 'polyphenol'], plant: 'raspberry', unit: ['cup', 123], swap: 'berry', cost: 3, poly: 215, usda: 'Raspberries, raw' }),
+  F('cherries', 'Sweet cherries', 'דובדבנים', '🍒', 'fruits',
+    [63, 1.1, 16.0, 0.2, 0.04, 2.1, 12.8, 0, 222, 13, 0.36, 11, 7, 4, 0, 0],
+    { tags: ['fv', 'polyphenol'], plant: 'cherry', unit: ['cup', 138], swap: 'berry', cost: 3, poly: 274, usda: 'Cherries, sweet, raw' }),
+  F('kiwi', 'Kiwifruit (green)', 'קיווי', '🥝', 'fruits',
+    [61, 1.1, 14.7, 0.5, 0.03, 3.0, 9.0, 3, 312, 34, 0.31, 17, 92.7, 25, 0, 0],
+    { tags: ['fv'], plant: 'kiwi', unit: ['fruit', 69], swap: 'fruit', cost: 2, usda: 'Kiwifruit, green, raw' }),
+  F('pear', 'Pear', 'אגס', '🍐', 'fruits',
+    [57, 0.4, 15.2, 0.1, 0.02, 3.1, 9.8, 1, 116, 9, 0.18, 7, 4.3, 7, 0, 0],
+    { tags: ['fv', 'prebiotic'], plant: 'pear', unit: ['medium', 178], swap: 'fruit', cost: 1, usda: 'Pears, raw' }),
+  F('pomegranate', 'Pomegranate seeds', 'גרעיני רימון', '🍎', 'fruits',
+    [83, 1.7, 18.7, 1.2, 0.12, 4.0, 13.7, 3, 236, 10, 0.3, 12, 10.2, 38, 0, 0],
+    { tags: ['fv', 'polyphenol'], plant: 'pomegranate', unit: ['tbsp', 12], swap: 'fruit', cost: 2, usda: 'Pomegranates, raw' }),
+  F('mango', 'Mango', 'מנגו', '🥭', 'fruits',
+    [60, 0.8, 15.0, 0.4, 0.09, 1.6, 13.7, 1, 168, 11, 0.16, 10, 36.4, 43, 0, 0],
+    { tags: ['fv'], plant: 'mango', unit: ['cup', 165], swap: 'fruit', cost: 2, usda: 'Mangos, raw' }),
+  F('grapes', 'Red grapes', 'ענבים אדומים', '🍇', 'fruits',
+    [69, 0.7, 18.1, 0.2, 0.05, 0.9, 15.5, 2, 191, 10, 0.36, 7, 3.2, 2, 0, 0],
+    { tags: ['fv', 'polyphenol'], plant: 'grape', unit: ['cup', 151], swap: 'fruit', cost: 2, usda: 'Grapes, red or green (European type, such as Thompson seedless), raw' }),
+  F('dates', 'Medjool dates', 'תמרים מג׳הול', '🌴', 'fruits',
+    [277, 1.8, 75.0, 0.2, 0, 6.7, 66.5, 1, 696, 64, 0.9, 54, 0, 15, 0, 0],
+    { tags: ['fv'], plant: 'date', unit: ['date', 24], swap: 'dried', cost: 2, usda: 'Dates, medjool' }),
+  F('prunes', 'Prunes (dried plums)', 'שזיפים מיובשים', '🟤', 'fruits',
+    [240, 2.2, 63.9, 0.4, 0.09, 7.1, 38.1, 2, 732, 43, 0.93, 41, 0.6, 4, 0, 0],
+    { tags: ['fv', 'polyphenol', 'prebiotic'], plant: 'plum', unit: ['prune', 9.5], swap: 'dried', cost: 2, usda: 'Plums, dried (prunes), uncooked',
+      note: 'Contain sorbitol; evidence supports a laxative effect.' }),
+  F('figs_dried', 'Dried figs', 'תאנים מיובשות', '🟤', 'fruits',
+    [249, 3.3, 63.9, 0.9, 0.14, 9.8, 47.9, 10, 680, 162, 2.03, 68, 1.2, 9, 0, 0],
+    { tags: ['fv'], plant: 'fig', unit: ['fig', 8.4], swap: 'dried', cost: 2, usda: 'Figs, dried, uncooked' }),
+  F('lemon_juice', 'Lemon juice', 'מיץ לימון', '🍋', 'fruits',
+    [22, 0.4, 6.9, 0.2, 0.04, 0.3, 2.5, 1, 103, 6, 0.08, 6, 38.7, 20, 0, 0],
+    { tags: [], plant: 'lemon', unit: ['tbsp', 15], swap: 'acid', cost: 1, usda: 'Lemon juice, raw' }),
+
+  // ── Nuts, seeds & fats ───────────────────────────────────────────────────
+  F('almonds', 'Almonds', 'שקדים', '🌰', 'nuts',
+    [579, 21.2, 21.6, 49.9, 3.8, 12.5, 4.4, 1, 733, 269, 3.71, 270, 0, 44, 0, 0],
+    { tags: ['nut', 'polyphenol', 'prebiotic'], plant: 'almond', allergens: ['tree_nuts'], unit: ['handful', 28], swap: 'nut', cost: 3, poly: 187, usda: 'Nuts, almonds' }),
+  F('walnuts', 'Walnuts', 'אגוזי מלך', '🌰', 'nuts',
+    [654, 15.2, 13.7, 65.2, 6.13, 6.7, 2.6, 2, 441, 98, 2.91, 158, 1.3, 98, 0, 0],
+    { tags: ['nut', 'polyphenol'], plant: 'walnut', allergens: ['tree_nuts'], unit: ['handful', 28], swap: 'nut', cost: 3, usda: 'Nuts, walnuts, english',
+      note: 'Richest common nut source of plant omega-3 (ALA). Part of the Green-Mediterranean protocol (28 g/day).' }),
+  F('hazelnuts', 'Hazelnuts', 'אגוזי לוז', '🌰', 'nuts',
+    [628, 15.0, 16.7, 60.8, 4.46, 9.7, 4.3, 0, 680, 114, 4.7, 163, 6.3, 113, 0, 0],
+    { tags: ['nut', 'polyphenol'], plant: 'hazelnut', allergens: ['tree_nuts'], unit: ['handful', 28], swap: 'nut', cost: 3, poly: 495, usda: 'Nuts, hazelnuts or filberts' }),
+  F('pistachios', 'Pistachios', 'פיסטוקים', '🌰', 'nuts',
+    [560, 20.2, 27.2, 45.3, 5.91, 10.6, 7.7, 1, 1025, 105, 3.92, 121, 5.6, 51, 0, 0],
+    { tags: ['nut', 'polyphenol'], plant: 'pistachio', allergens: ['tree_nuts'], unit: ['handful', 28], swap: 'nut', cost: 3, usda: 'Nuts, pistachio nuts, raw' }),
+  F('peanut_butter', 'Peanut butter (no salt)', 'חמאת בוטנים (ללא מלח)', '🥜', 'nuts',
+    [588, 25.1, 19.6, 50.4, 10.29, 6.0, 9.2, 17, 649, 43, 1.87, 154, 0, 87, 0, 0],
+    { tags: ['legume'], plant: 'peanut', nova: 3, allergens: ['peanut'], unit: ['tbsp', 16], swap: 'spread', cost: 2, usda: 'Peanut butter, smooth style, without salt',
+      note: 'Choose 100% peanut versions; many brands add sugar and hydrogenated oils (NOVA 4).' }),
+  F('chia', 'Chia seeds', 'זרעי צ׳יה', '⚫', 'seeds',
+    [486, 16.5, 42.1, 30.7, 3.33, 34.4, 0, 16, 407, 631, 7.72, 335, 1.6, 49, 0, 0],
+    { tags: ['seed', 'prebiotic'], plant: 'chia', unit: ['tbsp', 12], swap: 'seed', cost: 2, usda: 'Seeds, chia seeds, dried' }),
+  F('flax', 'Ground flaxseed', 'זרעי פשתן טחונים', '🟫', 'seeds',
+    [534, 18.3, 28.9, 42.2, 3.66, 27.3, 1.6, 30, 813, 255, 5.73, 392, 0.6, 87, 0, 0],
+    { tags: ['seed', 'polyphenol', 'prebiotic'], plant: 'flax', unit: ['tbsp', 7], swap: 'seed', cost: 1, poly: 1528, usda: 'Seeds, flaxseed' }),
+  F('pumpkin_seeds', 'Pumpkin seeds', 'גרעיני דלעת', '🎃', 'seeds',
+    [559, 30.2, 10.7, 49.1, 8.66, 6.0, 1.4, 7, 809, 46, 8.82, 592, 1.9, 58, 0, 0],
+    { tags: ['seed'], plant: 'pumpkin', unit: ['tbsp', 9], swap: 'seed', cost: 2, usda: 'Seeds, pumpkin and squash seed kernels, dried' }),
+  F('tahini', 'Tahini', 'טחינה גולמית', '🥣', 'seeds',
+    [595, 17.0, 21.2, 53.8, 7.53, 9.3, 0.5, 115, 414, 426, 8.95, 95, 0, 98, 0, 0],
+    { tags: ['seed'], plant: 'sesame', allergens: ['sesame'], unit: ['tbsp', 15], swap: 'spread', cost: 2, usda: 'Seeds, sesame butter, tahini, from roasted and toasted kernels (most common type)' }),
+  F('evoo', 'Extra-virgin olive oil', 'שמן זית כתית מעולה', '🫒', 'fats',
+    [884, 0, 0, 100, 13.8, 0, 0, 2, 1, 1, 0.56, 0, 0, 0, 0, 0],
+    { tags: ['oliveoil', 'polyphenol'], plant: 'olive', nova: 2, unit: ['tbsp', 13.5], swap: 'oil', cost: 2, poly: 55, usda: 'Oil, olive, salad or cooking',
+      note: 'Polyphenol content of olive oil varies roughly tenfold with cultivar, harvest and storage; the value shown is an approximate average.' }),
+
+  // ── Dairy, fermented & alternatives ─────────────────────────────────────
+  F('greek_yogurt', 'Greek yogurt, plain, low-fat', 'יוגורט יווני טבעי דל שומן', '🥛', 'dairy',
+    [73, 10.0, 3.9, 1.9, 1.23, 0, 3.6, 34, 141, 115, 0.04, 11, 0, 12, 0.75, 0],
+    { tags: ['dairy', 'fermented'], animal: 'dairy', allergens: ['milk'], unit: ['cup', 227], swap: 'ferment_dairy', cost: 2, usda: 'Yogurt, Greek, plain, lowfat' }),
+  F('kefir', 'Kefir, plain, low-fat', 'קפיר טבעי', '🥛', 'dairy',
+    [41, 3.8, 4.5, 0.9, 0.6, 0, 4.6, 40, 164, 130, 0.04, 12, 0.2, 0, 0.3, 0],
+    { tags: ['dairy', 'fermented'], animal: 'dairy', allergens: ['milk'], unit: ['cup', 243], swap: 'ferment_dairy', cost: 2, usda: 'Kefir, lowfat, plain',
+      note: 'Vitamin D in US products comes from fortification and is not counted here.' }),
+  F('soy_yogurt', 'Soy yogurt, plain, fortified', 'יוגורט סויה טבעי מועשר', '🥛', 'dairy',
+    [50, 4.0, 2.1, 2.3, 0.4, 1.0, 2.1, 40, 150, 120, 0.6, 20, 0, 10, 0.38, 0.75],
+    { tags: ['fermented', 'soy'], plant: 'soybean', nova: 4, allergens: ['soy'], unit: ['cup', 200], swap: 'ferment_dairy', cost: 2, status: 'label-estimate',
+      note: 'No USDA reference entry: typical label values for unsweetened calcium/B12/D-fortified soy yogurt. Most contain stabilisers (NOVA 4) — still a useful plant protein/calcium source.' }),
+  F('feta', 'Feta cheese', 'גבינת פטה', '🧀', 'dairy',
+    [264, 14.2, 4.1, 21.3, 14.95, 0, 4.1, 917, 62, 493, 0.65, 19, 0, 32, 1.69, 0.4],
+    { tags: ['dairy', 'fermented'], animal: 'dairy', nova: 3, allergens: ['milk'], unit: ['tbsp', 9], swap: 'cheese', cost: 2, usda: 'Cheese, feta',
+      note: 'High in sodium and saturated fat — used in small amounts. In pregnancy choose pasteurised cheese only.' }),
+  F('cottage', 'Cottage cheese, 2%', 'קוטג׳ 2%', '🧀', 'dairy',
+    [81, 10.5, 4.8, 2.3, 1.24, 0, 4.0, 308, 141, 111, 0.16, 11, 0, 13, 0.47, 0.1],
+    { tags: ['dairy'], animal: 'dairy', nova: 3, allergens: ['milk'], unit: ['cup', 226], swap: 'cheese', cost: 2, usda: 'Cheese, cottage, lowfat, 2% milkfat' }),
+  F('miso', 'Miso', 'מיסו', '🥣', 'fermented',
+    [198, 12.8, 25.4, 6.0, 1.14, 5.4, 6.2, 3728, 210, 57, 2.49, 48, 0, 19, 0.08, 0],
+    { tags: ['fermented', 'soy', 'legume'], plant: 'soybean', nova: 3, allergens: ['soy'], unit: ['tbsp', 17], swap: 'ferment', cost: 2, usda: 'Miso',
+      note: 'Very high in sodium — use small amounts.' }),
+
+  // ── Fish, eggs & poultry ────────────────────────────────────────────────
+  F('salmon', 'Salmon, Atlantic (cooked)', 'סלמון (מבושל)', '🐟', 'protein',
+    [206, 22.1, 0, 12.4, 2.5, 0, 0, 61, 384, 15, 0.34, 30, 3.7, 34, 2.8, 13.1],
+    { tags: ['fish', 'oilyfish'], animal: 'fish', allergens: ['fish'], unit: ['fillet', 150], swap: 'protein', cost: 3, usda: 'Fish, salmon, Atlantic, farmed, cooked, dry heat' }),
+  F('sardines', 'Sardines, canned in oil (drained)', 'סרדינים בשמן (מסוננים)', '🐟', 'protein',
+    [208, 24.6, 0, 11.5, 1.53, 0, 0, 307, 397, 382, 2.92, 39, 0, 10, 8.94, 4.8],
+    { tags: ['fish', 'oilyfish'], animal: 'fish', nova: 3, allergens: ['fish'], unit: ['can', 92], swap: 'protein', cost: 2, usda: 'Fish, sardine, Atlantic, canned in oil, drained solids with bone',
+      note: 'Calcium comes from the edible bones. Low-mercury fish.' }),
+  F('tuna', 'Light tuna, canned in water', 'טונה בהירה במים', '🐟', 'protein',
+    [116, 25.5, 0, 0.8, 0.23, 0, 0, 338, 237, 11, 1.53, 27, 0, 4, 2.99, 1.7],
+    { tags: ['fish'], animal: 'fish', nova: 3, allergens: ['fish'], unit: ['can', 112], swap: 'protein', cost: 2, usda: 'Fish, tuna, light, canned in water, drained solids',
+      note: 'Contains methylmercury; pregnancy guidance limits tuna intake.' }),
+  F('cod', 'Cod (cooked)', 'בקלה / קוד (מבושל)', '🐟', 'protein',
+    [105, 22.8, 0, 0.9, 0.17, 0, 0, 78, 244, 14, 0.49, 42, 1, 8, 1.05, 1.2],
+    { tags: ['fish'], animal: 'fish', allergens: ['fish'], unit: ['fillet', 180], swap: 'protein', cost: 3, usda: 'Fish, cod, Atlantic, cooked, dry heat' }),
+  F('chicken', 'Chicken breast, roasted (skinless)', 'חזה עוף צלוי (ללא עור)', '🍗', 'protein',
+    [165, 31.0, 0, 3.6, 1.01, 0, 0, 74, 256, 15, 1.04, 29, 0, 4, 0.34, 0.1],
+    { tags: ['poultry'], animal: 'poultry', unit: ['breast', 172], swap: 'protein', cost: 2, usda: 'Chicken, broilers or fryers, breast, meat only, cooked, roasted' }),
+  F('eggs', 'Eggs, hard-boiled', 'ביצים קשות', '🥚', 'protein',
+    [155, 12.6, 1.1, 10.6, 3.27, 0, 1.1, 124, 126, 50, 1.19, 10, 0, 44, 1.11, 2.2],
+    { tags: ['egg'], animal: 'egg', allergens: ['egg'], unit: ['egg', 50], swap: 'egg', cost: 1, usda: 'Egg, whole, cooked, hard-boiled' }),
+
+  // ── Other ───────────────────────────────────────────────────────────────
+  F('dark_chocolate', 'Dark chocolate 70–85%', 'שוקולד מריר 70–85%', '🍫', 'other',
+    [598, 7.8, 45.9, 42.6, 24.49, 10.9, 24.0, 20, 715, 73, 11.9, 228, 0, 0, 0, 0],
+    { tags: ['polyphenol', 'addedsugar'], plant: 'cocoa', nova: 4, addedSugar: 24.0, unit: ['square', 10], swap: 'treat', cost: 3, poly: 1664,
+      usda: 'Chocolate, dark, 70-85% cacao solids',
+      note: 'Most dark chocolate contains added sugar and emulsifier (NOVA 4); polyphenol content varies with processing. Keep portions small.' }),
+  F('cocoa', 'Cocoa powder, unsweetened', 'אבקת קקאו ללא סוכר', '🍫', 'other',
+    [228, 19.6, 57.9, 13.7, 8.07, 37.0, 1.8, 21, 1524, 128, 13.86, 499, 0, 32, 0, 0],
+    { tags: ['polyphenol'], plant: 'cocoa', nova: 2, unit: ['tbsp', 5], swap: 'treat', cost: 2, poly: 3448, usda: 'Cocoa, dry powder, unsweetened' }),
+  F('green_tea', 'Green tea (brewed)', 'תה ירוק (חלוט)', '🍵', 'drinks',
+    [1, 0.2, 0, 0, 0, 0, 0, 1, 8, 0, 0.02, 1, 0.3, 1, 0, 0],
+    { tags: ['polyphenol'], plant: 'tea', unit: ['cup', 245], swap: 'drink', cost: 1, poly: 89, usda: 'Beverages, tea, green, brewed, regular',
+      note: 'Part of the Green-Mediterranean protocol (3–4 cups/day in DIRECT PLUS). Contains caffeine.' }),
+  F('coffee', 'Coffee (brewed, black)', 'קפה שחור (חלוט)', '☕', 'drinks',
+    [1, 0.1, 0, 0, 0, 0, 0, 2, 49, 2, 0.01, 3, 0, 2, 0, 0],
+    { tags: ['polyphenol'], plant: 'coffee', unit: ['cup', 237], swap: 'drink', cost: 1, poly: 214, usda: 'Beverages, coffee, brewed, prepared with tap water',
+      note: 'Polyphenol value is for filter coffee. Contains caffeine; limit in pregnancy.' }),
+  F('honey', 'Honey', 'דבש', '🍯', 'other',
+    [304, 0.3, 82.4, 0, 0, 0.2, 82.1, 4, 52, 6, 0.42, 2, 0.5, 2, 0, 0],
+    { tags: ['addedsugar'], nova: 2, addedSugar: 82.1, unit: ['tsp', 7], swap: 'sweet', cost: 2, usda: 'Honey',
+      note: 'Counts as free/added sugar (WHO definition).' }),
+];
+
+export const FOOD_MAP = Object.fromEntries(FOODS.map((f) => [f.id, f]));
+
+export const FOOD_GROUPS = ['grains', 'starchy', 'legumes', 'vegetables', 'fruits', 'nuts', 'seeds', 'fats', 'dairy', 'fermented', 'protein', 'drinks', 'other'];
+
+export const ALLERGENS = ['gluten', 'milk', 'egg', 'tree_nuts', 'peanut', 'soy', 'fish', 'sesame', 'shellfish'];
+
+export const STATUS_LABEL = {
+  'usda-transcribed': { en: 'USDA SR Legacy reference values (transcribed, pending API verification)', he: 'ערכי ייחוס USDA SR Legacy (הוזנו ידנית, ממתין לאימות API)' },
+  'usda-verified': { en: 'USDA FoodData Central (verified via API)', he: 'USDA FoodData Central (אומת מול ה-API)' },
+  'label-estimate': { en: 'Estimate from typical product labels', he: 'הערכה לפי תוויות מוצר טיפוסיות' },
+  'label-declared': { en: 'Manufacturer-declared label values (Open Food Facts)', he: 'ערכים מוצהרים ע״י היצרן (Open Food Facts)' },
+  'ai-extracted': { en: 'Read from your label photo by AI — check against the label', he: 'נקרא מתמונת התווית ע״י AI — יש לבדוק מול התווית' },
+  'user-entered': { en: 'Entered by you', he: 'הוזן על ידך' },
+};
+
+export function searchFoods(query, lang = 'en') {
+  const q = String(query || '').trim().toLowerCase();
+  if (!q) return FOODS.slice(0, 20);
+  return FOODS.filter((f) =>
+    f.name.en.toLowerCase().includes(q) || f.name.he.includes(q) || f.id.includes(q) || (f.plant || '').includes(q),
+  );
+}
+
+export function foodIsAllowed(food, profile = {}) {
+  const diet = profile.diet || 'omnivore';
+  const animal = food.animal;
+  if (diet === 'vegan' && animal) return false;
+  if (diet === 'vegetarian' && ['meat', 'poultry', 'fish'].includes(animal)) return false;
+  if (diet === 'pescatarian' && ['meat', 'poultry'].includes(animal)) return false;
+  const allergies = profile.allergies || [];
+  for (const a of food.allergens) {
+    const base = a.replace('*', '');
+    if (allergies.includes(base)) return false;
+    if (base === 'tree_nuts' && allergies.includes('tree_nuts')) return false;
+  }
+  if ((profile.dislikes || []).includes(food.id)) return false;
+  return true;
+}
