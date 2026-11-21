@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="theme-color" content="#2b1d6b" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<title>כוחות-על</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;600;800&display=swap" rel="stylesheet" />
+<style>
+  /* =========================================================
+     עיצוב כללי
+     ========================================================= */
+  :root {
+    --bg1: #2b1d6b;
+    --bg2: #5b2a9e;
+    --card: rgba(255,255,255,0.12);
+    --card-strong: rgba(255,255,255,0.2);
+    --text: #ffffff;
+    --muted: #d9cff7;
+    --play: #22c55e;   /* כוח המשחק השלו */
+    --sleep: #6366f1;  /* כוח השינה האמיצה */
+    --calm: #f59e0b;   /* כוח השליטה והרוגע */
+    --gem: #22d3ee;
+    --danger: #ef4444;
+    --radius: 22px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    font-family: "Rubik", "Arial Hebrew", "Segoe UI", Arial, sans-serif;
+    color: var(--text);
+    background: var(--bg1);
+    overflow-x: hidden;
+  }
+  html { background: var(--bg1); }
+  body::before {
+    content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(circle at 20% 0%, #7c3aed 0%, transparent 45%),
+                radial-gradient(circle at 100% 30%, #db2777 0%, transparent 40%),
+                linear-gradient(160deg, var(--bg1), var(--bg2));
+  }
+  button { font-family: inherit; cursor: pointer; }
+  .app { max-width: 760px; margin: 0 auto; padding: 16px 16px 96px; }
+
+  /* כוכבים ברקע */
+  .stars { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+  .star { position: absolute; width: 3px; height: 3px; background: #fff; border-radius: 50%;
+          opacity: .6; animation: twinkle 3s infinite ease-in-out; }
+  @keyframes twinkle { 50% { opacity: .1; transform: scale(.6); } }
+  .app > * { position: relative; z-index: 1; }
+
+  /* כותרת */
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+  .hello h1 { margin: 0; font-size: clamp(1.4rem, 5vw, 2rem); font-weight: 800; }
+  .hello p { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
+  .gem-counter {
+    display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+    background: var(--card-strong); border-radius: 999px; font-weight: 800; font-size: 1.4rem;
+    box-shadow: 0 4px 18px rgba(0,0,0,.25); white-space: nowrap;
+  }
+  .gem-counter .gem-icon { font-size: 1.6rem; display: inline-block; }
+  .gem-counter.bump .gem-icon { animation: bump .5s ease; }
+  @keyframes bump { 40% { transform: scale(1.6) rotate(-15deg); } }
+
+  /* מד אנרגיה */
+  .energy { background: var(--card); border-radius: var(--radius); padding: 16px; margin-bottom: 18px;
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
+  .energy-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+  .energy-top h2 { margin: 0; font-size: 1.15rem; }
+  .energy-top span { color: var(--muted); font-weight: 600; }
+  .meter { display: flex; gap: 5px; height: 34px; padding: 5px; background: rgba(0,0,0,.3);
+           border-radius: 999px; overflow: hidden; }
+  .seg { flex: 1; border-radius: 999px; background: rgba(255,255,255,.08); transition: background .4s, box-shadow .4s; }
+  .seg.on { animation: segIn .6s ease; }
+  .seg.play  { background: linear-gradient(180deg, #86efac, var(--play));  box-shadow: 0 0 12px var(--play); }
+  .seg.sleep { background: linear-gradient(180deg, #a5b4fc, var(--sleep)); box-shadow: 0 0 12px var(--sleep); }
+  .seg.calm  { background: linear-gradient(180deg, #fde68a, var(--calm));  box-shadow: 0 0 12px var(--calm); }
+  @keyframes segIn { 0% { transform: scaleY(.2); filter: brightness(2.5); } 100% { transform: none; } }
+  .meter.full { animation: rainbowGlow 2s infinite linear; }
+  @keyframes rainbowGlow {
+    0% { box-shadow: 0 0 18px #f472b6; } 33% { box-shadow: 0 0 18px #22d3ee; }
+    66% { box-shadow: 0 0 18px #facc15; } 100% { box-shadow: 0 0 18px #f472b6; } }
+  .energy-msg { margin-top: 10px; font-weight: 600; color: #fef08a; min-height: 1.3em; }
+
+  /* כרטיסי כוחות */
+  .powers { display: grid; gap: 14px; margin-bottom: 22px; }
+  .power {
+    --c: var(--play);
+    display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-items: center;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--c) 38%, transparent), rgba(255,255,255,.06));
+    border-radius: var(--radius); padding: 16px;
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--c) 60%, transparent), 0 8px 24px rgba(0,0,0,.25);
+  }
+  .power[data-id="sleep"] { --c: var(--sleep); }
+  .power[data-id="calm"]  { --c: var(--calm); }
+  .power .emoji { grid-row: span 2; font-size: 3.2rem; width: 76px; height: 76px; display: grid; place-items: center;
+                  background: rgba(255,255,255,.15); border-radius: 50%; }
+  .power h3 { margin: 0; font-size: 1.25rem; font-weight: 800; }
+  .power .desc { margin: 0; color: var(--muted); font-size: .95rem; }
+  .power .row { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .activate {
+    flex: 1; border: 0; border-radius: 16px; padding: 16px; font-size: 1.15rem; font-weight: 800; color: #1b1035;
+    background: linear-gradient(180deg, #fff, color-mix(in srgb, var(--c) 35%, #fff));
+    box-shadow: 0 6px 0 color-mix(in srgb, var(--c) 70%, #000), 0 10px 20px rgba(0,0,0,.25);
+    transition: transform .1s, box-shadow .1s;
+  }
+  .activate:active { transform: translateY(5px); box-shadow: 0 1px 0 color-mix(in srgb, var(--c) 70%, #000); }
+  .activate:disabled { filter: grayscale(.7); opacity: .65; cursor: default; transform: none;
+                       box-shadow: 0 3px 0 rgba(0,0,0,.3); }
+  .today-dots { display: flex; gap: 4px; }
+  .today-dots i { width: 14px; height: 14px; border-radius: 50%; background: rgba(255,255,255,.2); }
+  .today-dots i.done { background: var(--c); box-shadow: 0 0 8px var(--c); }
+  .power.pulse { animation: powerPulse .7s ease; }
+  @keyframes powerPulse { 30% { transform: scale(1.04); filter: brightness(1.3); } }
+
+  /* כותרות מקטעים */
+  .section-title { display: flex; align-items: center; gap: 8px; margin: 22px 0 10px; font-size: 1.2rem; font-weight: 800; }
+
+  /* מדליות */
+  .medals { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 10px; }
+  .medal { background: var(--card); border-radius: 18px; padding: 12px 8px; text-align: center; }
+  .medal .m-emoji { font-size: 2.4rem; display: block; }
+  .medal .m-name { font-weight: 700; font-size: .85rem; margin-top: 4px; display: block; }
+  .medal .m-req { color: var(--muted); font-size: .75rem; }
+  .medal.locked .m-emoji { filter: grayscale(1) brightness(.4); }
+  .medal.locked { opacity: .7; }
+  .medal.unlocked { background: linear-gradient(160deg, rgba(250,204,21,.35), rgba(255,255,255,.08));
+                    box-shadow: inset 0 0 0 2px rgba(250,204,21,.6); }
+
+  /* הפתעות */
+  .surprises { display: grid; gap: 10px; }
+  .surprise { display: flex; align-items: center; gap: 12px; background: var(--card); border-radius: 18px; padding: 12px 14px; }
+  .surprise .s-emoji { font-size: 2.2rem; }
+  .surprise .s-body { flex: 1; min-width: 0; }
+  .surprise .s-name { font-weight: 700; }
+  .surprise .s-bar { height: 10px; background: rgba(0,0,0,.3); border-radius: 999px; margin-top: 6px; overflow: hidden; }
+  .surprise .s-bar > div { height: 100%; background: linear-gradient(90deg, #22d3ee, #a78bfa, #f472b6); border-radius: 999px; transition: width .6s; }
+  .surprise .s-meta { color: var(--muted); font-size: .8rem; margin-top: 4px; }
+  .surprise.locked .s-emoji { filter: blur(5px) grayscale(.6); }
+  .surprise.ready { box-shadow: inset 0 0 0 2px #f472b6; background: linear-gradient(160deg, rgba(244,114,182,.3), rgba(255,255,255,.08)); }
+  .surprise.given { opacity: .55; }
+  .tag { font-size: .75rem; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: #f472b6; color: #2b0b1e; white-space: nowrap; }
+  .tag.given { background: #86efac; color: #052e16; }
+  .empty { color: var(--muted); text-align: center; padding: 14px; background: var(--card); border-radius: 18px; }
+
+  /* שבוע */
+  .week { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+  .day { background: var(--card); border-radius: 14px; padding: 8px 2px; text-align: center; font-size: .75rem; }
+  .day b { display: block; font-size: .85rem; margin-bottom: 4px; }
+  .day .dots { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .day .dots span { font-size: .7rem; }
+  .day.today { box-shadow: inset 0 0 0 2px #fff; }
+
+  /* כפתור הורים */
+  .parent-btn { position: fixed; bottom: calc(16px + env(safe-area-inset-bottom)); left: 16px; z-index: 5;
+                border: 0; border-radius: 999px; padding: 12px 18px; font-weight: 700; font-size: .95rem;
+                background: rgba(0,0,0,.45); color: #fff; backdrop-filter: blur(6px); }
+
+  /* מודלים */
+  .overlay { position: fixed; inset: 0; background: rgba(10,5,30,.75); backdrop-filter: blur(4px);
+             display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .overlay.show { display: flex; animation: fadeIn .25s ease; }
+  @keyframes fadeIn { from { opacity: 0; } }
+  .modal { background: linear-gradient(160deg, #3b2a8a, #241559); border-radius: 26px; padding: 22px; width: 100%;
+           max-width: 520px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.5);
+           animation: popIn .4s cubic-bezier(.2,1.6,.4,1); }
+  @keyframes popIn { from { transform: scale(.6); opacity: 0; } }
+  .modal h2 { margin: 0 0 12px; }
+  .celebrate { text-align: center; }
+  .celebrate .big { font-size: 5.5rem; display: block; animation: spinIn .9s cubic-bezier(.2,1.5,.4,1); }
+  @keyframes spinIn { from { transform: scale(0) rotate(-360deg); } }
+  .celebrate p { font-size: 1.15rem; color: var(--muted); }
+  .btn { border: 0; border-radius: 14px; padding: 12px 18px; font-weight: 700; font-size: 1rem;
+         background: #fff; color: #241559; }
+  .btn.primary { background: linear-gradient(180deg, #f9a8d4, #ec4899); color: #fff; }
+  .btn.ghost { background: rgba(255,255,255,.14); color: #fff; }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn.small { padding: 8px 12px; font-size: .85rem; border-radius: 10px; }
+  .btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+
+  /* קופסת מתנה */
+  .giftbox { font-size: 6rem; display: inline-block; cursor: pointer; animation: shake 1s infinite; user-select: none; }
+  @keyframes shake { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(12deg); } 60% { transform: rotate(-6deg); } }
+
+  /* טפסים */
+  label { display: block; font-weight: 600; margin: 12px 0 6px; font-size: .95rem; }
+  input, select { width: 100%; padding: 12px; border-radius: 12px; border: 0; font: inherit; font-size: 1rem;
+                  background: rgba(255,255,255,.92); color: #1b1035; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .grid3 label { font-size: .8rem; }
+  fieldset { border: 1px solid rgba(255,255,255,.2); border-radius: 16px; padding: 12px; margin: 14px 0; }
+  legend { font-weight: 800; padding: 0 6px; }
+  .s-edit { display: grid; grid-template-columns: 56px 1fr 72px auto; gap: 6px; align-items: center; margin-bottom: 8px; }
+  .s-edit input { padding: 9px; }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 260px; margin: 14px auto 0; direction: ltr; }
+  .pin-pad button { padding: 16px; font-size: 1.4rem; font-weight: 800; border-radius: 14px; border: 0; background: rgba(255,255,255,.15); color: #fff; }
+  .pin-dots { display: flex; justify-content: center; gap: 12px; margin-top: 8px; direction: ltr; }
+  .pin-dots i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid #fff; }
+  .pin-dots i.f { background: #fff; }
+  .pin-err { color: #fca5a5; text-align: center; min-height: 1.3em; margin-top: 8px; }
+  .hint { color: var(--muted); font-size: .82rem; margin: 4px 0 0; }
+
+  /* טוסט ביטול */
+  .toast { position: fixed; bottom: calc(20px + env(safe-area-inset-bottom)); right: 50%; transform: translate(50%, 140%);
+           background: #111; color: #fff; padding: 12px 16px; border-radius: 14px; display: flex; gap: 12px; align-items: center;
+           z-index: 60; transition: transform .3s ease; box-shadow: 0 8px 24px rgba(0,0,0,.4); max-width: calc(100% - 32px); }
+  .toast.show { transform: translate(50%, 0); }
+  .toast button { background: #fde047; color: #111; border: 0; border-radius: 10px; padding: 6px 12px; font-weight: 800; }
+
+  /* אבן חן מעופפת */
+  .flying-gem { position: fixed; z-index: 70; font-size: 2.2rem; pointer-events: none; }
+
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 80; }
+
+  @media (max-width: 420px) {
+    .power .emoji { width: 62px; height: 62px; font-size: 2.6rem; }
+    .s-edit { grid-template-columns: 46px 1fr 60px auto; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+<div class="stars" id="stars" aria-hidden="true"></div>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<main class="app">
+  <header>
+    <div class="hello">
+      <h1 id="helloTitle">שלום, גיבור-על! 🦸</h1>
+      <p id="helloSub">איזה כוח תפעיל היום?</p>
+    </div>
+    <div class="gem-counter" id="gemCounter" aria-live="polite" title="אבני חן">
+      <span class="gem-icon">💎</span><span id="gemCount">0</span>
+    </div>
+  </header>
+
+  <section class="energy" aria-labelledby="energyTitle">
+    <div class="energy-top">
+      <h2 id="energyTitle">⚡ מד האנרגיה של היום</h2>
+      <span id="energyText">0 / 6</span>
+    </div>
+    <div class="meter" id="meter" role="progressbar" aria-valuemin="0"></div>
+    <div class="energy-msg" id="energyMsg" aria-live="polite"></div>
+  </section>
+
+  <section class="powers" id="powers" aria-label="הכוחות שלי"></section>
+
+  <div class="section-title">🏅 המדליות שלי</div>
+  <section class="medals" id="medals"></section>
+
+  <div class="section-title">🎁 ההפתעות שמחכות לי</div>
+  <section class="surprises" id="surprises"></section>
+
+  <div class="section-title">📅 השבוע שלי</div>
+  <section class="week" id="week"></section>
+</main>
+
+<button class="parent-btn" id="parentBtn">👨‍👩‍👧 אזור הורים</button>
+
+<!-- חלון חגיגה -->
+<div class="overlay" id="celebrateOverlay" role="dialog" aria-modal="true">
+  <div class="modal celebrate" id="celebrateBox"></div>
+</div>
+
+<!-- חלון קוד הורים -->
+<div class="overlay" id="pinOverlay" role="dialog" aria-modal="true" aria-labelledby="pinTitle">
+  <div class="modal" style="text-align:center">
+    <h2 id="pinTitle">🔒 אזור הורים</h2>
+    <p class="hint" id="pinHint">הקלידו את הקוד הסודי (ברירת מחדל: 1234)</p>
+    <div class="pin-dots" id="pinDots"><i></i><i></i><i></i><i></i></div>
+    <div class="pin-err" id="pinErr"></div>
+    <div class="pin-pad" id="pinPad"></div>
+    <div class="btns"><button class="btn ghost" data-close="pinOverlay">ביטול</button></div>
+  </div>
+</div>
+
+<!-- חלון הגדרות הורים -->
+<div class="overlay" id="parentOverlay" role="dialog" aria-modal="true" aria-labelledby="parentTitle">
+  <div class="modal">
+    <h2 id="parentTitle">⚙️ הגדרות הורים</h2>
+
+    <fieldset>
+      <legend>הגיבור/ה</legend>
+      <div class="grid2">
+        <div><label for="fName">שם הילד/ה</label><input id="fName" maxlength="20" placeholder="למשל: נועם" /></div>
+        <div><label for="fGender">פנייה</label>
+          <select id="fGender"><option value="m">בן (גיבור)</option><option value="f">בת (גיבורה)</option></select></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>אנרגיה וכוחות</legend>
+      <label for="fGoal">כמה הפעלות ממלאות את מד האנרגיה היומי?</label>
+      <input id="fGoal" type="number" min="1" max="20" />
+      <p class="hint">מילוי מלא של המד מעניק אבן חן בונוס 💎</p>
+      <label>מקסימום הפעלות ביום לכל כוח</label>
+      <div class="grid3">
+        <div><label for="fCapPlay">🧸 משחק שלו</label><input id="fCapPlay" type="number" min="1" max="10" /></div>
+        <div><label for="fCapSleep">🌙 שינה אמיצה</label><input id="fCapSleep" type="number" min="1" max="10" /></div>
+        <div><label for="fCapCalm">🧘 שליטה ורוגע</label><input id="fCapCalm" type="number" min="1" max="10" /></div>
+      </div>
+      <label style="display:flex;gap:8px;align-items:center"><input id="fSound" type="checkbox" style="width:auto" /> צלילים</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>🎁 הפתעות (נפתחות לפי מספר אבני חן)</legend>
+      <div id="sEditList"></div>
+      <button class="btn ghost small" id="addSurprise">➕ הוספת הפתעה</button>
+      <p class="hint">סמנו ✔ כשההפתעה נמסרה לילד/ה.</p>
+    </fieldset>
+
+    <fieldset>
+      <legend>תיקונים ואיפוס</legend>
+      <label>אבני חן — תיקון ידני</label>
+      <div class="btns" style="justify-content:flex-start;margin-top:0">
+        <button class="btn ghost small" id="gemMinus">➖ הורדת אבן חן</button>
+        <button class="btn ghost small" id="gemPlus">➕ הוספת אבן חן</button>
+      </div>
+      <label for="fPin">החלפת קוד הורים (4 ספרות)</label>
+      <input id="fPin" inputmode="numeric" maxlength="4" pattern="\d{4}" placeholder="השאירו ריק כדי לא לשנות" />
+      <div class="btns" style="justify-content:flex-start">
+        <button class="btn danger small" id="resetToday">איפוס היום</button>
+        <button class="btn danger small" id="resetAll">איפוס הכל</button>
+      </div>
+    </fieldset>
+
+    <div class="btns">
+      <button class="btn primary" id="saveParent">💾 שמירה</button>
+      <button class="btn ghost" data-close="parentOverlay">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status"><span id="toastText"></span><button id="undoBtn">ביטול</button></div>
+
+<script>
+(() => {
+  'use strict';
+
+  /* =========================================================
+     הגדרות קבועות
+     ========================================================= */
+  const STORAGE_KEY = 'superpowers-kids-v1';
+
+  const POWERS = [
+    { id: 'play',  emoji: '🧸', name: 'כוח המשחק השלו',     desc: 'לשחק בנחת, בעדינות ובשמחה',      btn: 'הפעלתי את כוח המשחק!' },
+    { id: 'sleep', emoji: '🌙', name: 'כוח השינה האמיצה',   desc: 'לישון כל הלילה במיטה שלי',        btn: 'ישנתי במיטה שלי!' },
+    { id: 'calm',  emoji: '🧘', name: 'כוח השליטה והרוגע',  desc: 'לנשום עמוק ולא להתעצבן',          btn: 'שמרתי על רוגע!' },
+  ];
+
+  // מדליות: לפי סך אבני החן, ולפי מספר הפעלות של כוח מסוים
+  const MEDALS = [
+    { id: 'g1',   emoji: '✨', name: 'ניצוץ ראשון',     req: { gems: 1 } },
+    { id: 'g5',   emoji: '🥉', name: 'גיבור מתחיל',     nameF: 'גיבורה מתחילה', req: { gems: 5 } },
+    { id: 'g15',  emoji: '🥈', name: 'גיבור כסף',       nameF: 'גיבורת כסף',    req: { gems: 15 } },
+    { id: 'g30',  emoji: '🥇', name: 'גיבור זהב',       nameF: 'גיבורת זהב',    req: { gems: 30 } },
+    { id: 'g50',  emoji: '🏆', name: 'אלוף הכוחות',     nameF: 'אלופת הכוחות',  req: { gems: 50 } },
+    { id: 'g100', emoji: '👑', name: 'אגדת-על',         req: { gems: 100 } },
+    { id: 'p10',  emoji: '🧸', name: 'מאסטר המשחק',     nameF: 'מאסטרית המשחק', req: { power: 'play', count: 10 } },
+    { id: 's10',  emoji: '🌟', name: 'אביר הלילה',      nameF: 'אבירת הלילה',   req: { power: 'sleep', count: 10 } },
+    { id: 'c10',  emoji: '🌈', name: 'מלך הרוגע',       nameF: 'מלכת הרוגע',    req: { power: 'calm', count: 10 } },
+    { id: 'full3',emoji: '⚡', name: '3 ימי טעינה מלאה', req: { fullDays: 3 } },
+  ];
+
+  const DEFAULT_SURPRISES = [
+    { emoji: '🍦', name: 'גלידה',                    cost: 10 },
+    { emoji: '📖', name: 'סיפור נוסף לפני השינה',   cost: 15 },
+    { emoji: '🌳', name: 'טיול בפארק עם אמא ואבא',  cost: 25 },
+    { emoji: '🎁', name: 'צעצוע קטן',               cost: 40 },
+  ];
+
+  const PRAISE = ['מדהים!', 'כל הכבוד!', 'וואו, איזה כוח!', 'סופר-גיבור!', 'יש!!', 'אלוף/ה!', 'הכוח זורם!'];
+
+  /* =========================================================
+     מצב ושמירה
+     ========================================================= */
+  const todayKey = (d = new Date()) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const uid = () => Math.random().toString(36).slice(2, 9);
+
+  function defaultState() {
+    return {
+      childName: '', gender: 'm', pin: '1234', goal: 6, sound: true,
+      caps: { play: 3, sleep: 1, calm: 3 },
+      days: {},           // { '2026-11-21': { play: 1, sleep: 0, calm: 2, order: ['play','calm','calm'], bonus: true } }
+      adjust: 0,          // תיקונים ידניים של הורים
+      medals: {},         // { id: timestamp }
+      surprises: DEFAULT_SURPRISES.map(s => ({ id: uid(), ...s, revealed: false, given: false })),
+    };
+  }
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return Object.assign(defaultState(), JSON.parse(raw));
+    } catch (e) { /* אחסון לא זמין */ }
+    return defaultState();
+  }
+  function save() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {} }
+
+  let state = load();
+
+  const g = (m, f) => (state.gender === 'f' ? f : m);
+  const day = (k = todayKey()) => (state.days[k] ||= { play: 0, sleep: 0, calm: 0, order: [], bonus: false });
+
+  function totals() {
+    const t = { play: 0, sleep: 0, calm: 0, bonus: 0, fullDays: 0 };
+    for (const d of Object.values(state.days)) {
+      t.play += d.play || 0; t.sleep += d.sleep || 0; t.calm += d.calm || 0;
+      if (d.bonus) { t.bonus++; t.fullDays++; }
+    }
+    t.gems = Math.max(0, t.play + t.sleep + t.calm + t.bonus + (state.adjust || 0));
+    return t;
+  }
+
+  /* =========================================================
+     צלילים (Web Audio, בלי קבצים)
+     ========================================================= */
+  let audioCtx = null;
+  function tone(freqs, dur = 0.12, type = 'sine', gap = 0.09) {
+    if (!state.sound) return;
+    try {
+      audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
+      freqs.forEach((f, i) => {
+        const o = audioCtx.createOscillator(), gn = audioCtx.createGain();
+        const t0 = audioCtx.currentTime + i * gap;
+        o.type = type; o.frequency.value = f;
+        gn.gain.setValueAtTime(0.0001, t0);
+        gn.gain.exponentialRampToValueAtTime(0.25, t0 + 0.02);
+        gn.gain.exponentialRampToValueAtTime(0.0001, t0 + dur + 0.2);
+        o.connect(gn).connect(audioCtx.destination);
+        o.start(t0); o.stop(t0 + dur + 0.25);
+      });
+    } catch (e) {}
+  }
+  const sfx = {
+    power:   () => tone([523, 659, 784], 0.1, 'triangle'),
+    full:    () => tone([523, 659, 784, 1047, 1319], 0.12, 'triangle', 0.1),
+    medal:   () => tone([784, 988, 1175, 1568], 0.18, 'sine', 0.12),
+    surprise:() => tone([392, 523, 659, 784, 1047, 1319, 1568], 0.14, 'square', 0.08),
+    tap:     () => tone([880], 0.05, 'sine'),
+  };
+
+  /* =========================================================
+     קונפטי
+     ========================================================= */
+  const canvas = document.getElementById('confetti');
+  const ctx = canvas.getContext('2d');
+  let particles = [], rafId = null;
+  const COLORS = ['#f472b6', '#22d3ee', '#facc15', '#a78bfa', '#4ade80', '#fb923c', '#ffffff'];
+
+  function resizeCanvas() {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr;
+    canvas.style.width = innerWidth + 'px'; canvas.style.height = innerHeight + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  addEventListener('resize', resizeCanvas); resizeCanvas();
+
+  function confetti({ x = innerWidth / 2, y = innerHeight / 2, count = 120, spread = 1, colors = COLORS, emoji = null } = {}) {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) count = Math.min(count, 25);
+    for (let i = 0; i < count; i++) {
+      const a = Math.random() * Math.PI * 2, s = (4 + Math.random() * 9) * spread;
+      particles.push({
+        x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 6 * spread,
+        w: 6 + Math.random() * 8, h: 8 + Math.random() * 10,
+        r: Math.random() * Math.PI, vr: (Math.random() - .5) * .4,
+        color: colors[(Math.random() * colors.length) | 0],
+        shape: emoji && Math.random() < .25 ? 'emoji' : (Math.random() < .5 ? 'rect' : 'circle'),
+        emoji, life: 0, max: 140 + Math.random() * 60,
+      });
+    }
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+  function rainConfetti(n = 160) {
+    for (let i = 0; i < n; i++) {
+      particles.push({
+        x: Math.random() * innerWidth, y: -20 - Math.random() * innerHeight * .5,
+        vx: (Math.random() - .5) * 2, vy: 2 + Math.random() * 3,
+        w: 6 + Math.random() * 8, h: 8 + Math.random() * 10, r: Math.random() * 3, vr: (Math.random() - .5) * .3,
+        color: COLORS[(Math.random() * COLORS.length) | 0], shape: Math.random() < .5 ? 'rect' : 'circle',
+        life: 0, max: 260,
+      });
+    }
+    if (!rafId) rafId = requestAnimationFrame(tick);
+  }
+  function tick() {
+    ctx.clearRect(0, 0, innerWidth, innerHeight);
+    particles = particles.filter(p => p.life < p.max && p.y < innerHeight + 40);
+    for (const p of particles) {
+      p.life++; p.vy += 0.25; p.vx *= 0.99; p.vy *= 0.99;
+      p.x += p.vx + Math.sin(p.life / 10) * .6; p.y += p.vy; p.r += p.vr;
+      ctx.save(); ctx.globalAlpha = Math.min(1, (p.max - p.life) / 40);
+      ctx.translate(p.x, p.y); ctx.rotate(p.r);
+      if (p.shape === 'emoji') { ctx.font = '22px serif'; ctx.fillText(p.emoji, -11, 8); }
+      else {
+        ctx.fillStyle = p.color;
+        if (p.shape === 'rect') ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h * Math.abs(Math.cos(p.life / 8)));
+        else { ctx.beginPath(); ctx.arc(0, 0, p.w / 2, 0, Math.PI * 2); ctx.fill(); }
+      }
+      ctx.restore();
+    }
+    rafId = particles.length ? requestAnimationFrame(tick) : (ctx.clearRect(0, 0, innerWidth, innerHeight), null);
+  }
+
+  /* =========================================================
+     רינדור
+     ========================================================= */
+  const $ = id => document.getElementById(id);
+
+  function renderHeader() {
+    const name = state.childName.trim();
+    $('helloTitle').textContent = name ? `שלום, ${name}! 🦸` : `שלום, ${g('גיבור-על', 'גיבורת-על')}! ${g('🦸‍♂️', '🦸‍♀️')}`;
+    $('helloSub').textContent = g('איזה כוח תפעיל היום?', 'איזה כוח תפעילי היום?');
+    $('gemCount').textContent = totals().gems;
+  }
+
+  function renderMeter() {
+    const d = day(), n = d.order.length, goal = state.goal;
+    const meter = $('meter');
+    meter.innerHTML = '';
+    for (let i = 0; i < goal; i++) {
+      const s = document.createElement('div');
+      s.className = 'seg' + (i < n ? ' ' + d.order[i] : '');
+      meter.appendChild(s);
+    }
+    meter.setAttribute('aria-valuemax', goal);
+    meter.setAttribute('aria-valuenow', Math.min(n, goal));
+    meter.classList.toggle('full', n >= goal);
+    $('energyText').textContent = `${Math.min(n, goal)} / ${goal}`;
+    const left = goal - n;
+    $('energyMsg').textContent =
+      n === 0 ? 'המד ריק — הגיע הזמן להפעיל כוחות! 💪' :
+      left > 0 ? `עוד ${left} ${left === 1 ? 'הפעלה' : 'הפעלות'} לטעינה מלאה ולאבן חן בונוס!` :
+      '⚡ טעינה מלאה! ' + g('אתה סופר-גיבור היום!', 'את סופר-גיבורה היום!');
+  }
+
+  function renderPowers() {
+    const d = day(), wrap = $('powers');
+    wrap.innerHTML = '';
+    for (const p of POWERS) {
+      const cap = state.caps[p.id], used = d[p.id] || 0;
+      const el = document.createElement('article');
+      el.className = 'power'; el.dataset.id = p.id;
+      el.innerHTML = `
+        <div class="emoji" aria-hidden="true">${p.emoji}</div>
+        <h3>${p.name}</h3>
+        <p class="desc">${p.desc}</p>
+        <div class="row">
+          <button class="activate" ${used >= cap ? 'disabled' : ''}>${used >= cap ? '✅ הכוח הופעל להיום!' : p.btn}</button>
+          <div class="today-dots" aria-label="${used} מתוך ${cap} היום">${
+            Array.from({ length: cap }, (_, i) => `<i class="${i < used ? 'done' : ''}"></i>`).join('')}</div>
+        </div>`;
+      el.querySelector('.activate').addEventListener('click', e => activate(p.id, e.currentTarget));
+      wrap.appendChild(el);
+    }
+  }
+
+  function medalUnlocked(m, t) {
+    const r = m.req;
+    if (r.gems) return t.gems >= r.gems;
+    if (r.power) return t[r.power] >= r.count;
+    if (r.fullDays) return t.fullDays >= r.fullDays;
+    return false;
+  }
+  const medalName = m => (state.gender === 'f' && m.nameF) ? m.nameF : m.name;
+  const medalReq = m => m.req.gems ? `${m.req.gems} 💎` :
+                        m.req.power ? `${m.req.count} × ${POWERS.find(p => p.id === m.req.power).emoji}` :
+                        `${m.req.fullDays} × ⚡`;
+
+  function renderMedals() {
+    const wrap = $('medals');
+    wrap.innerHTML = '';
+    for (const m of MEDALS) {
+      const on = !!state.medals[m.id];
+      const el = document.createElement('div');
+      el.className = 'medal ' + (on ? 'unlocked' : 'locked');
+      el.innerHTML = `<span class="m-emoji">${on ? m.emoji : '🔒'}</span>
+        <span class="m-name">${medalName(m)}</span><span class="m-req">${medalReq(m)}</span>`;
+      wrap.appendChild(el);
+    }
+  }
+
+  function renderSurprises() {
+    const wrap = $('surprises'), gems = totals().gems;
+    wrap.innerHTML = '';
+    const list = [...state.surprises].sort((a, b) => a.cost - b.cost);
+    if (!list.length) { wrap.innerHTML = '<div class="empty">ההורים עוד לא הגדירו הפתעות 🤫</div>'; return; }
+    for (const s of list) {
+      const ready = gems >= s.cost;
+      const el = document.createElement('div');
+      el.className = 'surprise ' + (s.given ? 'given' : ready ? 'ready' : 'locked');
+      const pct = Math.min(100, Math.round(gems / s.cost * 100));
+      el.innerHTML = `
+        <div class="s-emoji" aria-hidden="true">${ready ? escapeHtml(s.emoji) : '🎁'}</div>
+        <div class="s-body">
+          <div class="s-name">${ready ? escapeHtml(s.name) : 'הפתעה סודית'}</div>
+          ${ready ? '' : `<div class="s-bar"><div style="width:${pct}%"></div></div>
+          <div class="s-meta">עוד ${s.cost - gems} 💎 (${gems}/${s.cost})</div>`}
+        </div>
+        ${s.given ? '<span class="tag given">✔ התקבלה</span>' : ready ? '<span class="tag">🎉 נפתחה!</span>' : ''}`;
+      wrap.appendChild(el);
+    }
+  }
+
+  function renderWeek() {
+    const wrap = $('week'), names = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+    wrap.innerHTML = '';
+    for (let i = 6; i >= 0; i--) {
+      const dt = new Date(); dt.setDate(dt.getDate() - i);
+      const k = todayKey(dt), d = state.days[k] || { play: 0, sleep: 0, calm: 0 };
+      const el = document.createElement('div');
+      el.className = 'day' + (i === 0 ? ' today' : '');
+      el.innerHTML = `<b>${names[dt.getDay()]}</b><div class="dots">
+        <span>🧸 ${d.play || 0}</span><span>🌙 ${d.sleep || 0}</span><span>🧘 ${d.calm || 0}</span>
+        <span>${d.bonus ? '⚡' : '&nbsp;'}</span></div>`;
+      wrap.appendChild(el);
+    }
+  }
+
+  function renderAll() { renderHeader(); renderMeter(); renderPowers(); renderMedals(); renderSurprises(); renderWeek(); }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /* =========================================================
+     הפעלת כוח
+     ========================================================= */
+  let lastAction = null, toastTimer = null;
+
+  function activate(powerId, btn) {
+    const d = day();
+    if ((d[powerId] || 0) >= state.caps[powerId]) return;
+    const wasFull = d.order.length >= state.goal;
+
+    d[powerId] = (d[powerId] || 0) + 1;
+    d.order.push(powerId);
+    let gotBonus = false;
+    if (!wasFull && d.order.length >= state.goal && !d.bonus) { d.bonus = true; gotBonus = true; }
+    lastAction = { key: todayKey(), powerId, gotBonus };
+    save();
+
+    // אנימציות
+    const r = btn.getBoundingClientRect();
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--' + powerId).trim();
+    confetti({ x: r.left + r.width / 2, y: r.top, count: 50, spread: .7, colors: [color, '#fff', '#facc15', '#22d3ee'] });
+    flyGem(r.left + r.width / 2, r.top + r.height / 2);
+    sfx.power();
+    const card = btn.closest('.power');
+
+    renderAll();
+    const newCard = document.querySelector(`.power[data-id="${powerId}"]`);
+    newCard.classList.add('pulse');
+    const segs = $('meter').children;
+    const idx = d.order.length - 1;
+    if (segs[idx]) segs[idx].classList.add('on');
+
+    showToast(`${PRAISE[(Math.random() * PRAISE.length) | 0]} +1 💎`);
+
+    // תור חגיגות: טעינה מלאה → מדליות → הפתעות
+    const queue = [];
+    if (gotBonus) queue.push(() => celebrateFull());
+    queue.push(...checkMedals().map(m => () => celebrateMedal(m)));
+    queue.push(...checkSurprises().map(s => () => celebrateSurprise(s)));
+    runQueue(queue, 900);
+  }
+
+  function flyGem(x, y) {
+    const target = $('gemCounter').getBoundingClientRect();
+    const el = document.createElement('div');
+    el.className = 'flying-gem'; el.textContent = '💎';
+    el.style.left = x - 18 + 'px'; el.style.top = y - 18 + 'px';
+    document.body.appendChild(el);
+    const dx = target.left + target.width / 2 - x, dy = target.top + target.height / 2 - y;
+    const anim = el.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx * .4}px, ${dy * .4 - 80}px) scale(1.8) rotate(180deg)`, opacity: 1, offset: .45 },
+      { transform: `translate(${dx}px, ${dy}px) scale(.6) rotate(360deg)`, opacity: .9 },
+    ], { duration: 900, easing: 'cubic-bezier(.5,0,.3,1)' });
+    anim.onfinish = () => {
+      el.remove();
+      const gc = $('gemCounter'); gc.classList.remove('bump'); void gc.offsetWidth; gc.classList.add('bump');
+    };
+  }
+
+  function checkMedals() {
+    const t = totals(), fresh = [];
+    for (const m of MEDALS) if (!state.medals[m.id] && medalUnlocked(m, t)) { state.medals[m.id] = Date.now(); fresh.push(m); }
+    if (fresh.length) save();
+    return fresh;
+  }
+  function checkSurprises() {
+    const gems = totals().gems, fresh = [];
+    for (const s of state.surprises) if (!s.revealed && gems >= s.cost) { s.revealed = true; fresh.push(s); }
+    if (fresh.length) save();
+    return fresh;
+  }
+
+  /* תור חלונות חגיגה */
+  let celebrating = [];
+  function runQueue(items, delay = 0) {
+    if (!items.length) return;
+    const wasIdle = celebrating.length === 0 && !$('celebrateOverlay').classList.contains('show');
+    celebrating.push(...items);
+    if (wasIdle) setTimeout(nextCelebration, delay);
+  }
+  function nextCelebration() {
+    const fn = celebrating.shift();
+    if (fn) fn(); else closeOverlay('celebrateOverlay');
+  }
+  function showCelebration(html, onShow) {
+    $('celebrateBox').innerHTML = html;
+    openOverlay('celebrateOverlay');
+    const ok = $('celebrateBox').querySelector('[data-next]');
+    if (ok) ok.addEventListener('click', () => { sfx.tap(); closeOverlay('celebrateOverlay'); setTimeout(nextCelebration, 250); });
+    onShow && onShow();
+  }
+
+  function celebrateFull() {
+    sfx.full(); rainConfetti(180);
+    showCelebration(`
+      <span class="big">⚡</span>
+      <h2>טעינה מלאה!</h2>
+      <p>מילאת את מד האנרגיה של היום!<br/>קיבלת <b>אבן חן בונוס</b> 💎</p>
+      <div class="btns"><button class="btn primary" data-next>יש! 🎉</button></div>`);
+  }
+  function celebrateMedal(m) {
+    sfx.medal(); confetti({ count: 160, emoji: m.emoji }); setTimeout(() => rainConfetti(100), 300);
+    showCelebration(`
+      <span class="big">${m.emoji}</span>
+      <h2>מדליה חדשה!</h2>
+      <p>${g('זכית', 'זכית')} במדליה<br/><b style="font-size:1.4rem;color:#fde047">${medalName(m)}</b></p>
+      <div class="btns"><button class="btn primary" data-next>איזה כיף! 🏅</button></div>`);
+  }
+  function celebrateSurprise(s) {
+    sfx.tap();
+    showCelebration(`
+      <h2>יש לך הפתעה! 🤩</h2>
+      <p>${g('לחץ', 'לחצי')} על המתנה כדי לפתוח אותה</p>
+      <div class="giftbox" id="giftbox" role="button" tabindex="0" aria-label="פתיחת מתנה">🎁</div>
+      <div id="giftReveal"></div>`, () => {
+      const box = $('giftbox');
+      const open = () => {
+        if (box.dataset.opened) return; box.dataset.opened = '1';
+        box.style.animation = 'none';
+        box.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.6) rotate(20deg)', opacity: 0 }], { duration: 450, fill: 'forwards' });
+        const r = box.getBoundingClientRect();
+        sfx.surprise();
+        confetti({ x: r.left + r.width / 2, y: r.top + r.height / 2, count: 220, spread: 1.3, emoji: s.emoji });
+        setTimeout(() => rainConfetti(200), 250);
+        setTimeout(() => {
+          box.style.display = 'none';
+          $('giftReveal').innerHTML = `
+            <span class="big">${escapeHtml(s.emoji)}</span>
+            <h2 style="color:#fde047">${escapeHtml(s.name)}</h2>
+            <p>${g('הרווחת', 'הרווחת')} את זה עם ${s.cost} אבני חן! ${g('ספר', 'ספרי')} להורים 💖</p>
+            <div class="btns"><button class="btn primary" data-next>הידד! 🎉</button></div>`;
+          $('giftReveal').querySelector('[data-next]').addEventListener('click', () => {
+            sfx.tap(); closeOverlay('celebrateOverlay'); setTimeout(nextCelebration, 250); renderSurprises();
+          });
+        }, 420);
+      };
+      box.addEventListener('click', open);
+      box.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    });
+  }
+
+  /* ביטול הפעלה בטעות */
+  function showToast(text) {
+    $('toastText').textContent = text;
+    $('toast').classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { $('toast').classList.remove('show'); lastAction = null; }, 5000);
+  }
+  $('undoBtn').addEventListener('click', () => {
+    if (!lastAction) return;
+    const d = state.days[lastAction.key];
+    if (d) {
+      d[lastAction.powerId] = Math.max(0, d[lastAction.powerId] - 1);
+      const i = d.order.lastIndexOf(lastAction.powerId);
+      if (i > -1) d.order.splice(i, 1);
+      if (lastAction.gotBonus) d.bonus = false;
+    }
+    lastAction = null; save(); renderAll();
+    $('toast').classList.remove('show');
+  });
+
+  /* =========================================================
+     חלונות
+     ========================================================= */
+  function openOverlay(id) { $(id).classList.add('show'); }
+  function closeOverlay(id) { $(id).classList.remove('show'); }
+  document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', () => closeOverlay(b.dataset.close)));
+
+  /* קוד הורים */
+  let pinEntry = '';
+  function buildPinPad() {
+    const pad = $('pinPad');
+    ['1','2','3','4','5','6','7','8','9','⌫','0','✓'].forEach(k => {
+      const b = document.createElement('button'); b.textContent = k;
+      b.addEventListener('click', () => pinKey(k));
+      pad.appendChild(b);
+    });
+  }
+  function drawPinDots() { [...$('pinDots').children].forEach((d, i) => d.classList.toggle('f', i < pinEntry.length)); }
+  function pinKey(k) {
+    sfx.tap(); $('pinErr').textContent = '';
+    if (k === '⌫') pinEntry = pinEntry.slice(0, -1);
+    else if (k === '✓') return checkPin();
+    else if (pinEntry.length < 4) pinEntry += k;
+    drawPinDots();
+    if (pinEntry.length === 4) setTimeout(checkPin, 120);
+  }
+  function checkPin() {
+    if (pinEntry === state.pin) { closeOverlay('pinOverlay'); openParent(); }
+    else { $('pinErr').textContent = 'קוד שגוי, נסו שוב'; }
+    pinEntry = ''; drawPinDots();
+  }
+  $('parentBtn').addEventListener('click', () => {
+    pinEntry = ''; drawPinDots(); $('pinErr').textContent = '';
+    $('pinHint').textContent = state.pin === '1234' ? 'הקלידו את הקוד הסודי (ברירת מחדל: 1234)' : 'הקלידו את הקוד הסודי';
+    openOverlay('pinOverlay');
+  });
+  addEventListener('keydown', e => {
+    if ($('pinOverlay').classList.contains('show')) {
+      if (/^\d$/.test(e.key)) pinKey(e.key);
+      else if (e.key === 'Backspace') pinKey('⌫');
+      else if (e.key === 'Enter') pinKey('✓');
+    }
+    if (e.key === 'Escape') ['pinOverlay', 'parentOverlay'].forEach(closeOverlay);
+  });
+
+  /* הגדרות הורים */
+  let draftSurprises = [];
+  function openParent() {
+    $('fName').value = state.childName;
+    $('fGender').value = state.gender;
+    $('fGoal').value = state.goal;
+    $('fCapPlay').value = state.caps.play; $('fCapSleep').value = state.caps.sleep; $('fCapCalm').value = state.caps.calm;
+    $('fSound').checked = state.sound;
+    $('fPin').value = '';
+    draftSurprises = state.surprises.map(s => ({ ...s }));
+    renderSurpriseEditor();
+    openOverlay('parentOverlay');
+  }
+  function renderSurpriseEditor() {
+    const wrap = $('sEditList'); wrap.innerHTML = '';
+    draftSurprises.forEach((s, i) => {
+      const row = document.createElement('div'); row.className = 's-edit';
+      row.innerHTML = `
+        <input aria-label="אימוג׳י" value="${escapeHtml(s.emoji)}" maxlength="4" style="text-align:center" data-f="emoji" />
+        <input aria-label="שם ההפתעה" value="${escapeHtml(s.name)}" maxlength="40" data-f="name" />
+        <input aria-label="מחיר באבני חן" type="number" min="1" max="999" value="${s.cost}" data-f="cost" />
+        <div style="display:flex;gap:4px">
+          <button class="btn small ${s.given ? 'primary' : 'ghost'}" title="נמסרה" data-a="given">✔</button>
+          <button class="btn small ghost" title="מחיקה" data-a="del">🗑</button>
+        </div>`;
+      row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', () => {
+        s[inp.dataset.f] = inp.dataset.f === 'cost' ? Math.max(1, parseInt(inp.value) || 1) : inp.value;
+      }));
+      row.querySelector('[data-a="given"]').addEventListener('click', () => { s.given = !s.given; renderSurpriseEditor(); });
+      row.querySelector('[data-a="del"]').addEventListener('click', () => { draftSurprises.splice(i, 1); renderSurpriseEditor(); });
+      wrap.appendChild(row);
+    });
+  }
+  $('addSurprise').addEventListener('click', () => {
+    draftSurprises.push({ id: uid(), emoji: '🎈', name: 'הפתעה חדשה', cost: (totals().gems + 10), revealed: false, given: false });
+    renderSurpriseEditor();
+  });
+  const clampInt = (v, lo, hi, dflt) => { const n = parseInt(v); return isNaN(n) ? dflt : Math.min(hi, Math.max(lo, n)); };
+
+  $('saveParent').addEventListener('click', () => {
+    const newPin = $('fPin').value.trim();
+    if (newPin && !/^\d{4}$/.test(newPin)) { alert('הקוד חייב להיות 4 ספרות'); return; }
+    state.childName = $('fName').value.trim();
+    state.gender = $('fGender').value;
+    state.goal = clampInt($('fGoal').value, 1, 20, 6);
+    state.caps = {
+      play: clampInt($('fCapPlay').value, 1, 10, 3),
+      sleep: clampInt($('fCapSleep').value, 1, 10, 1),
+      calm: clampInt($('fCapCalm').value, 1, 10, 3),
+    };
+    state.sound = $('fSound').checked;
+    if (newPin) state.pin = newPin;
+    // הפתעה שהמחיר שלה שונה ועדיין לא הושגה — תיחשף מחדש בחגיגה
+    const gems = totals().gems;
+    state.surprises = draftSurprises
+      .filter(s => String(s.name).trim())
+      .map(s => ({ ...s, name: String(s.name).trim(), emoji: String(s.emoji).trim() || '🎁',
+                   revealed: s.revealed && gems >= s.cost }));
+    save(); closeOverlay('parentOverlay'); renderAll();
+    // חשיפת הפתעות שכבר הושגו (למשל אם ההורים הוסיפו הפתעה זולה)
+    runQueue(checkSurprises().map(s => () => celebrateSurprise(s)), 300);
+  });
+
+  function adjustGems(delta) {
+    state.adjust = (state.adjust || 0) + delta;
+    save(); renderAll();
+    if (delta > 0) {
+      runQueue([...checkMedals().map(m => () => celebrateMedal(m)), ...checkSurprises().map(s => () => celebrateSurprise(s))], 300);
+      if (celebrating.length) closeOverlay('parentOverlay');
+    }
+  }
+  $('gemPlus').addEventListener('click', () => adjustGems(1));
+  $('gemMinus').addEventListener('click', () => { if (totals().gems > 0) adjustGems(-1); });
+
+  $('resetToday').addEventListener('click', () => {
+    if (!confirm('לאפס את ההפעלות של היום?')) return;
+    delete state.days[todayKey()]; save(); renderAll();
+  });
+  $('resetAll').addEventListener('click', () => {
+    if (!confirm('לאפס את כל ההתקדמות, המדליות ואבני החן? (ההגדרות וההפתעות יישמרו)')) return;
+    state.days = {}; state.medals = {}; state.adjust = 0;
+    state.surprises.forEach(s => { s.revealed = false; s.given = false; });
+    save(); closeOverlay('parentOverlay'); renderAll();
+  });
+
+  /* =========================================================
+     אתחול
+     ========================================================= */
+  function makeStars() {
+    const wrap = $('stars');
+    for (let i = 0; i < 40; i++) {
+      const s = document.createElement('div'); s.className = 'star';
+      s.style.left = Math.random() * 100 + '%'; s.style.top = Math.random() * 100 + '%';
+      s.style.animationDelay = (Math.random() * 3) + 's';
+      wrap.appendChild(s);
+    }
+  }
+
+  // רענון אוטומטי כשהיום מתחלף (למשל אם האפליקציה נשארה פתוחה בלילה)
+  let currentDay = todayKey();
+  setInterval(() => { if (todayKey() !== currentDay) { currentDay = todayKey(); renderAll(); } }, 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
+
+  makeStars(); buildPinPad();
+  // סנכרון מדליות בטעינה בלי חגיגה (למקרה של שינוי הגדרות)
+  checkMedals();
+  renderAll();
+})();
+</script>
+</body>
+</html>
