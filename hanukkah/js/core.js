@@ -164,7 +164,7 @@ window.HK = window.HK || {};
   };
   document.addEventListener('visibilitychange', function () {
     if (!ctx) return;
-    if (document.hidden) { ctx.suspend(); if (window.speechSynthesis) speechSynthesis.cancel(); }
+    if (document.hidden) { ctx.suspend(); HK.voice.stop(); }
     else ctx.resume();
   });
 
@@ -183,10 +183,16 @@ window.HK = window.HK || {};
       .replace(/ה'/g, 'השם').replace(/אלוקינו/g, 'אלוקינו')
       .replace(/[🕎⭐🏅🎉✨🔥🍩🪙]/g, '');
   }
+  // באפליקציית האנדרואיד: קריינות דרך מנוע הדיבור של הטלפון (גשר AndroidTTS)
+  var nativeEnd = null;
   HK.voice = {
-    available: function () { return !!window.speechSynthesis; },
-    hasHebrew: function () { return !!heVoice; },
+    available: function () { return !!(window.AndroidTTS || window.speechSynthesis); },
+    hasHebrew: function () { if (window.AndroidTTS) { try { return !!AndroidTTS.hasHebrew(); } catch (e) { return false; } } return !!heVoice; },
+    _end: function () { HK.music.duck(false); var f = nativeEnd; nativeEnd = null; if (f) f(); },
     speak: function (text, onend) {
+      if (data.settings.voice && window.AndroidTTS) {
+        try { nativeEnd = onend || null; HK.music.duck(true); AndroidTTS.speak(clean(text)); return; } catch (e) { }
+      }
       if (!data.settings.voice || !window.speechSynthesis) { if (onend) onend(); return; }
       try {
         speechSynthesis.cancel();
@@ -198,7 +204,7 @@ window.HK = window.HK || {};
         speechSynthesis.speak(u);
       } catch (e) { if (onend) onend(); }
     },
-    stop: function () { if (window.speechSynthesis) speechSynthesis.cancel(); HK.music.duck(false); }
+    stop: function () { if (window.AndroidTTS) { try { AndroidTTS.stop(); } catch (e) { } nativeEnd = null; } if (window.speechSynthesis) speechSynthesis.cancel(); HK.music.duck(false); }
   };
 
   /* ================= אפקטים: ניצוצות וקונפטי ================= */

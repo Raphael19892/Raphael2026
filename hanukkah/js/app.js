@@ -513,7 +513,7 @@ window.HK = window.HK || {};
     route();
     var sp = document.getElementById('splash');
     if (sp) setTimeout(function () { sp.classList.add('hide'); setTimeout(function () { sp.remove(); }, 600); }, 900);
-    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
+    if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0 && !window.AndroidTTS) {
       navigator.serviceWorker.register('sw.js').catch(function () { });
     }
   }
