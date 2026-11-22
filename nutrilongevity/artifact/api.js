@@ -88,6 +88,8 @@ function saveFailed(e) {
   document.dispatchEvent(new CustomEvent('nl-store-error', { detail: msg }));
 }
 
+const lang = () => (document.documentElement.lang === 'he' ? 'he' : 'en');
+
 // ── Helpers ────────────────────────────────────────────────────────────
 const today = () => { const x = new Date(); x.setMinutes(x.getMinutes() - x.getTimezoneOffset()); return x.toISOString().slice(0, 10); };
 const shift = (date, n) => new Date(new Date(`${date}T00:00:00Z`).getTime() + n * 86400000).toISOString().slice(0, 10);
@@ -216,7 +218,7 @@ async function handle(method, url, body = {}) {
   }
   if (p === '/api/product/analyze') {
     const now = new Date().toISOString();
-    if (body.url) return { ok: false, access: { ok: false, code: 'not_supported', url: String(body.url), checkedAt: now, message: 'This page cannot open other websites (its security sandbox blocks them), so the link was NOT read. Upload a photo of the label or paste the ingredient list and nutrition table instead — or use the self-hosted version, which reads links.' } };
+    if (body.url) return { ok: false, access: { ok: false, code: 'not_supported', url: String(body.url), checkedAt: now, message: lang() === 'he' ? 'האפליקציה בגרסה זו אינה יכולה לפתוח אתרים אחרים, ולכן הקישור לא נקרא.' : 'This version of the app cannot open other websites, so the link was not read.' } };
     if (body.pdfBase64) fail(503, 'PDFs cannot be read on this page. Upload a photo of the label or paste its text.');
     const shape = '\n\nReply with only a JSON object with exactly these keys: found, productName, brand, manufacturer, barcode, category, ingredientsText, ingredientsComplete, processingInfo, claims (array), servingSize, servingSizeG, basis ("per100g"|"per100ml"|"perServing"|"unknown"), nutrition {kcal, kj, protein, carbs, sugars, addedSugar, fat, satFat, transFat, fiber, sodium, salt}, quotes {ingredients, nutrition}, notes. Use null where absent.';
     if (body.imageBase64) {

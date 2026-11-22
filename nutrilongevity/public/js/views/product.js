@@ -70,6 +70,22 @@ export async function render(view) {
   if (pending.autorun) { pending.autorun = false; run(); }
 }
 
+// When a link cannot be read: open the page yourself, then paste its text or upload a screenshot of the label.
+function fallbackBox(url, run) {
+  const ta = h('textarea', { rows: 5, placeholder: t('pasteLabelPh'), 'aria-label': t('pasteLabel') });
+  const shot = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true, onchange: async () => { const f = shot.files[0]; if (f) run({ imageBase64: await toB64(f), mediaType: f.type }); } });
+  return h('div', { class: 'fallback-box' },
+    h('ol', { class: 'steps' },
+      h('li', {}, h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener noreferrer' }, icon('link', 14), ' ', t('openPage'))),
+      h('li', {}, t('copyStep')),
+      h('li', {}, t('pasteStep'))),
+    ta,
+    h('div', { class: 'row-actions' },
+      h('button', { class: 'btn primary small', onclick: () => { if (ta.value.trim()) run({ text: ta.value.trim() }); else toast(t('pasteFirst'), 'err'); } }, icon('sparkle', 14), ' ', t('analyzeText')),
+      (state.status.labelAi || state.status.photoAi) && h('button', { class: 'btn small', onclick: () => shot.click() }, icon('camera', 14), ' ', t('uploadScreenshot'))),
+    shot);
+}
+
 function toB64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); }); }
 
 // ── One product ────────────────────────────────────────────────────────
@@ -81,7 +97,8 @@ function resultCard(r, idx, run) {
       h('h3', {}, icon('warn', 17), ' ', t('linkNotRead')),
       r.input.url && h('p', { class: 'small', dir: 'ltr' }, r.input.url),
       h('p', {}, h('strong', {}, t('notReadHonest')), ' ', a.message || r.resp.message || r.resp.error || ''),
-      h('p', { class: 'muted small' }, t('tryInstead')));
+      h('p', { class: 'muted small' }, t('tryInstead')),
+      r.input.url && fallbackBox(r.input.url, run));
   }
   const rec = r.resp.record; const ev = r.eval; const id = rec.identity; const src = rec.source || {};
   const p = rec.nutrition.per100;
