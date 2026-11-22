@@ -15,6 +15,7 @@ import { analyzeIngredients, nutrientDensity, highIn } from '../shared/nova.js';
 import { sumItems } from '../shared/nutrition.js';
 import { buildContext, fallbackAnswer, extractRefs, stripUnknownRefs, SYSTEM_PROMPT, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
 import { parseMeal } from '../shared/mealParser.js';
+import { productPrompt, buildRecord, heuristicExtract } from '../shared/productExtract.js';
 import { analyzeMeal } from '../shared/mealScore.js';
 
 // ── Capabilities ───────────────────────────────────────────────────────
@@ -158,7 +159,7 @@ async function handle(method, url, body = {}) {
   const p = u.pathname; const q = Object.fromEntries(u.searchParams);
   let m;
 
-  if (p === '/api/status') return { ai: Boolean(caps.sample), labelAi: caps.labelAi, photoAi: caps.labelAi, pubmed: false, artifact: true, barcode: false, cloud: Boolean(caps.db), downloads: Boolean(caps.downloads) };
+  if (p === '/api/status') return { ai: Boolean(caps.sample), labelAi: caps.labelAi, photoAi: caps.labelAi, pubmed: false, productLinks: false, artifact: true, barcode: false, cloud: Boolean(caps.db), downloads: Boolean(caps.downloads) };
   if (p.startsWith('/api/auth/')) return { user: viewerUser() };
   if (p === '/api/me') { const prof = (await load('profile', { profile: null })).profile; return { user: viewerUser(), profile: prof, targets: prof ? computeTargets(prof) : null }; }
   if (p === '/api/profile' && method === 'PUT') { const profile = body.profile || body; const targets = computeTargets(profile); await save('profile', { profile }); return { profile, targets }; }
@@ -212,6 +213,23 @@ async function handle(method, url, body = {}) {
       try { aiError(e); } catch { /* fall back below */ }
       return { ...parseMeal(text), aiError: true };
     }
+  }
+  if (p === '/api/product/analyze') {
+    const now = new Date().toISOString();
+    if (body.url) return { ok: false, access: { ok: false, code: 'not_supported', url: String(body.url), checkedAt: now, message: 'This page cannot open other websites (its security sandbox blocks them), so the link was NOT read. Upload a photo of the label or paste the ingredient list and nutrition table instead — or use the self-hosted version, which reads links.' } };
+    if (body.pdfBase64) fail(503, 'PDFs cannot be read on this page. Upload a photo of the label or paste its text.');
+    const shape = '\n\nReply with only a JSON object with exactly these keys: found, productName, brand, manufacturer, barcode, category, ingredientsText, ingredientsComplete, processingInfo, claims (array), servingSize, servingSizeG, basis ("per100g"|"per100ml"|"perServing"|"unknown"), nutrition {kcal, kj, protein, carbs, sugars, addedSugar, fat, satFat, transFat, fiber, sodium, salt}, quotes {ingredients, nutrition}, notes. Use null where absent.';
+    if (body.imageBase64) {
+      if (!(caps.sample && caps.labelAi)) fail(503, 'Reading label photos is not available here. Paste the ingredient list instead.');
+      try { const x = await caps.sample.json(productPrompt({ kind: 'image' }) + shape, { images: [b64ToBlob(body.imageBase64, body.mediaType || 'image/jpeg')], cache: false }); return { ok: true, record: buildRecord(x, { type: 'photo', retrievedAt: now }, 'ai'), access: { ok: true, type: 'photo', retrievedAt: now } }; } catch (e) { aiError(e); fail(503, 'The photo could not be read. Paste the ingredient list instead.'); }
+    }
+    const text = String(body.text || '').slice(0, 20000);
+    if (!text.trim()) fail(400, 'Provide a photo or text');
+    const source = { type: 'text', retrievedAt: now };
+    if (caps.sample) {
+      try { const x = await caps.sample.json(productPrompt({ kind: 'text', content: text }) + shape, { cache: false }); return { ok: true, record: buildRecord(x, source, 'ai'), access: { ok: true, ...source } }; } catch (e) { try { aiError(e); } catch { /* fall back */ } }
+    }
+    return { ok: true, record: buildRecord(heuristicExtract({ text: /רכיבים|ingredients/i.test(text) ? text : `Ingredients: ${text}` }), source, 'heuristic'), access: { ok: true, ...source } };
   }
   if (p.startsWith('/api/research/search')) fail(503, 'Live PubMed search is available in the self-hosted version.');
   if ((m = p.match(/^\/api\/logs\/(\d+)$/)) && method === 'DELETE') {

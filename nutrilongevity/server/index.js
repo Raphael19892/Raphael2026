@@ -8,6 +8,9 @@ import * as auth from './auth.js';
 import { lookupBarcode, searchOff, searchFdc } from './products.js';
 import { chat, readLabel, aiAvailable, buildContext, parseMealAI } from './ai.js';
 import { searchPubMed } from './research.js';
+import { safeFetch, FetchError } from './productFetch.js';
+import { extractProductAI } from './ai.js';
+import { parseHtml, focusText, heuristicExtract, productPrompt, buildRecord } from '../shared/productExtract.js';
 import { computeTargets, CONDITIONS } from '../shared/engine.js';
 import { generatePlan } from '../shared/planner.js';
 import { analyzeWeek, dailySeries } from '../shared/analysis.js';
@@ -138,7 +141,7 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     return { ok: true };
   }, { auth: false });
 
-  route('GET', '/api/status', () => ({ ai: aiAvailable(), labelAi: aiAvailable(), photoAi: aiAvailable(), pubmed: true, fdc: Boolean(process.env.FDC_API_KEY), version: '1.1.0' }), { auth: false });
+  route('GET', '/api/status', () => ({ ai: aiAvailable(), labelAi: aiAvailable(), photoAi: aiAvailable(), pubmed: true, productLinks: true, fdc: Boolean(process.env.FDC_API_KEY), version: '1.1.0' }), { auth: false });
 
   // Profile
   route('GET', '/api/me', ({ user }) => {
@@ -209,6 +212,68 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     if (img && !aiAvailable()) throw new HttpError(503, 'Photo analysis needs the AI service. Describe the meal in words instead.');
     return parseMealAI({ text, imageBase64: img, mediaType, lang: body.lang === 'he' ? 'he' : 'en' });
   });
+  route('POST', '/api/product/analyze', async ({ body }) => {
+    const ai = aiAvailable();
+    const now = new Date().toISOString();
+    let rec;
+    if (body.url) {
+      let got;
+      try { got = await safeFetch(String(body.url).trim()); } catch (e) {
+        if (e instanceof FetchError) return { ok: false, access: { ok: false, code: e.code, message: e.message, url: String(body.url), checkedAt: now } };
+        throw e;
+      }
+      const source = { type: 'url', url: String(body.url), finalUrl: got.finalUrl, domain: new URL(got.finalUrl).hostname, status: got.status, contentType: got.contentType, retrievedAt: got.retrievedAt };
+      if (got.contentType.includes('pdf')) {
+        if (!ai) return { ok: false, access: { ok: true, ...source }, needs: 'ai_pdf', message: 'This link is a PDF. Reading PDFs needs the AI service; paste the ingredient list or upload a label photo instead.' };
+        const x = await extractProductAI([{ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: got.buffer.toString('base64') } }, { type: 'text', text: productPrompt({ kind: 'pdf' }) }]);
+        rec = buildRecord(x, source, 'ai');
+      } else if (got.contentType.startsWith('image/')) {
+        if (!ai || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(got.contentType)) return { ok: false, access: { ok: true, ...source }, needs: 'ai_image', message: 'This link is an image. Reading label images needs the AI service.' };
+        const x = await extractProductAI([{ type: 'image', source: { type: 'base64', media_type: got.contentType, data: got.buffer.toString('base64') } }, { type: 'text', text: productPrompt({ kind: 'image' }) }]);
+        rec = buildRecord(x, source, 'ai');
+      } else if (/html|xml|text\/plain/.test(got.contentType) || !got.contentType) {
+        const page = parseHtml(got.buffer.toString('utf8'));
+        source.title = page.title; source.lang = page.lang;
+        if (ai) {
+          const x = await extractProductAI([{ type: 'text', text: productPrompt({ kind: 'url', url: got.finalUrl, retrievedAt: got.retrievedAt, content: focusText(page.text), jsonld: page.jsonld }) }]);
+          if (!x.productName && page.jsonld[0]?.name) x.productName = page.jsonld[0].name;
+          rec = buildRecord(x, source, 'ai');
+        } else rec = buildRecord(heuristicExtract(page), source, 'heuristic');
+        if (!page.text || page.text.length < 200) rec.notes.push({ en: 'The page returned very little text — its content may load with JavaScript, which this reader does not run.', he: 'הדף החזיר מעט מאוד טקסט — ייתכן שהתוכן נטען ב-JavaScript, שהקורא אינו מריץ.' });
+      } else {
+        return { ok: false, access: { ok: true, ...source }, needs: 'unsupported', message: `Unsupported content type (${got.contentType}).` };
+      }
+    } else if (body.text) {
+      const text = String(body.text).slice(0, 20000);
+      const source = { type: 'text', retrievedAt: now };
+      rec = ai ? buildRecord(await extractProductAI([{ type: 'text', text: productPrompt({ kind: 'text', content: text }) }]), source, 'ai')
+        : buildRecord({ ...heuristicExtract({ text: /רכיבים|ingredients/i.test(text) ? text : `Ingredients: ${text}` }), notes: '' }, source, 'heuristic');
+    } else if (body.imageBase64 || body.pdfBase64) {
+      if (!ai) throw new HttpError(503, 'Reading photos and PDFs needs the AI service. Paste the ingredient list instead.');
+      const part = body.pdfBase64 ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: String(body.pdfBase64) } }
+        : { type: 'image', source: { type: 'base64', media_type: ['image/jpeg', 'image/png', 'image/webp'].includes(body.mediaType) ? body.mediaType : 'image/jpeg', data: String(body.imageBase64) } };
+      if (String(body.imageBase64 || body.pdfBase64).length > 10_000_000) throw new HttpError(413, 'File too large (max ~7 MB).');
+      rec = buildRecord(await extractProductAI([part, { type: 'text', text: productPrompt({ kind: body.pdfBase64 ? 'pdf' : 'image' }) }]), { type: body.pdfBase64 ? 'pdf' : 'photo', retrievedAt: now }, 'ai');
+    } else throw new HttpError(400, 'Provide a link, text, photo or PDF');
+
+    // Supplementary verification with Open Food Facts when a barcode is known.
+    if (rec.identity.barcode && /^\d{8,14}$/.test(rec.identity.barcode)) {
+      try {
+        const { product } = await lookupBarcode(db, rec.identity.barcode);
+        if (product) {
+          const checks = ['kcal', 'protein', 'sugars', 'fat', 'satFat', 'fiber', 'sodium'].map((k) => {
+            const a = rec.nutrition.per100[k]?.value; const b = product.per100[k];
+            if (a == null || b == null) return null;
+            const ok = Math.abs(a - b) <= Math.max(0.1 * Math.max(a, b), k === 'sodium' ? 20 : 0.5);
+            return { key: k, source: a, off: Math.round(b * 10) / 10, ok };
+          }).filter(Boolean);
+          rec.verification = { source: 'Open Food Facts', url: product.link, retrievedAt: now, name: product.name?.en, checks, offNova: product.nova && product.novaSource === 'openfoodfacts' ? product.nova : null };
+        }
+      } catch { rec.verification = { source: 'Open Food Facts', unavailable: true }; }
+    }
+    return { ok: true, record: rec, access: { ok: true, ...rec.source } };
+  });
+
   route('GET', '/api/research/search', async ({ query }) => {
     const q = String(query.q || '').trim().slice(0, 120);
     if (q.length < 3) throw new HttpError(400, 'Enter at least 3 characters');

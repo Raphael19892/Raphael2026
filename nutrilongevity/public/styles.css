@@ -503,3 +503,36 @@ details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
   .fw-grid { grid-template-columns: 1fr 1fr; }
   .bottom-nav a, .bottom-nav button { font-size: .6rem; }
 }
+
+/* ── v1.2: product links ────────────────────────────────────────────────── */
+.cta-link { background: linear-gradient(140deg, color-mix(in srgb, var(--c5) 16%, var(--surface)), var(--surface) 70%); border-color: color-mix(in srgb, var(--c5) 30%, var(--line)); }
+.cta-ic.alt { background: linear-gradient(135deg, color-mix(in srgb, var(--c5) 80%, white), var(--c5)); }
+.url-go { display: flex; gap: 8px; }
+.url-go input { flex: 1; min-width: 0; }
+.url-list { display: grid; gap: 8px; }
+.url-row { display: flex; gap: 6px; align-items: center; }
+.url-row input { flex: 1; min-width: 0; }
+.alt-inputs { margin-top: 12px; display: grid; gap: 8px; }
+.alt-inputs textarea { margin: 8px 0; }
+.product-card { display: grid; gap: 4px; }
+.prod-id { display: flex; gap: 12px; align-items: center; }
+.prod-id h2 { margin: 2px 0; font-size: 1.15rem; }
+.prov-legend { margin: 6px 0; font-size: .74rem; line-height: 1.9; }
+.sub { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 10px; }
+.ing-text { font-size: .9rem; line-height: 1.6; background: var(--surface-2); padding: 10px 12px; border-radius: 12px; }
+.ing-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ichip { display: inline-flex; flex-direction: column; padding: 4px 9px; border-radius: 10px; font-size: .8rem; border: 1px solid var(--line); background: var(--surface); }
+.ichip small { font-size: .64rem; color: var(--muted); }
+.ic-whole { border-color: color-mix(in srgb, var(--nova1) 55%, var(--line)); background: color-mix(in srgb, var(--nova1) 10%, var(--surface)); }
+.ic-culinary { border-color: color-mix(in srgb, var(--nova2) 55%, var(--line)); background: color-mix(in srgb, var(--nova2) 10%, var(--surface)); }
+.ic-preservative, .ic-acidity, .ic-fortificant, .ic-aid, .ic-other { border-color: color-mix(in srgb, var(--nova3) 45%, var(--line)); }
+.ic-cosmetic, .ic-substance { border-color: color-mix(in srgb, var(--nova4) 55%, var(--line)); background: color-mix(in srgb, var(--nova4) 10%, var(--surface)); }
+.ic-cosmetic.st-moderate, .ic-substance.st-moderate { background: color-mix(in srgb, var(--nova4) 5%, var(--surface)); border-style: dashed; }
+.ic-unknown { border-style: dotted; }
+.nova-box { border-radius: 14px; }
+.nova-head { display: flex; gap: 12px; align-items: center; margin: 6px 0 8px; }
+.nova.big { font-size: 1rem; padding: 8px 12px; border-radius: 10px; }
+.nova-insufficient { font-weight: 700; padding: 10px 12px; border-radius: 12px; background: var(--surface-2); border: 1px dashed var(--line); direction: rtl; text-align: right; }
+.table-scroll { overflow-x: auto; }
+.compare-card .ntable td { text-align: center; }
+blockquote { margin: 6px 0; padding: 8px 12px; border-inline-start: 3px solid var(--line); background: var(--surface-2); border-radius: 8px; font-size: .84rem; white-space: pre-wrap; }

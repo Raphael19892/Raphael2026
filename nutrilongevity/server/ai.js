@@ -3,6 +3,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { buildContext, extractRefs, stripUnknownRefs, fallbackAnswer, SYSTEM_PROMPT as SYSTEM, MEAL_SCHEMA, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
 import { parseMeal } from '../shared/mealParser.js';
+import { PRODUCT_SCHEMA } from '../shared/productExtract.js';
 
 export { buildContext };
 
@@ -103,4 +104,16 @@ export async function parseMealAI({ text, imageBase64, mediaType, lang }) {
     console.error('meal parse AI error:', e.status || '', e.message);
     return { ...parseMeal(text), aiError: true };
   }
+}
+
+
+/** Extract product information with Claude. `parts` are Messages API content blocks (text/image/document). */
+export async function extractProductAI(parts) {
+  const resp = await getClient().beta.messages.create({
+    model: MODEL, max_tokens: 16000, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+    output_config: { effort: 'low', format: { type: 'json_schema', schema: PRODUCT_SCHEMA } },
+    messages: [{ role: 'user', content: parts }],
+  });
+  if (resp.stop_reason === 'refusal') throw Object.assign(new Error('refused'), { status: 422 });
+  return JSON.parse(resp.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
 }

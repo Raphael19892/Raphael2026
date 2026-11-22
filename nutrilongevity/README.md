@@ -50,6 +50,23 @@ Describe what you ate in Hebrew or English, for example "I ate two slices of piz
 
 The Research library also has a live **PubMed** search for recent meta-analyses, RCTs and guidelines (self-hosted version). Those results are marked "not yet appraised".
 
+## Product & Link Intelligence
+
+Paste up to four product links (manufacturer pages, supermarkets, online grocers, label images or PDF specifications) from the **Product link** card on Home. You can also upload a label photo or paste the label text.
+
+- **Reading.** `server/productFetch.js` fetches the page safely: http(s) only, and every hostname and redirect hop must resolve to a public IP address. Limits: 5 redirects, 12 s, 4 MB. The app records the final URL, HTTP status and retrieval time. If a page can't be read, the result says so and asks for a label photo or the pasted ingredient list. It never pretends to have read the page.
+- **Extraction** (`shared/productExtract.js`). Claude copies the ingredients and nutrition table verbatim from the retrieved content, using a JSON schema, and returns null for anything absent. Without AI, a heuristic reader handles JSON-LD and Hebrew/English nutrition tables. Unit conversions (kJ→kcal, salt→sodium, per serving→per 100 g) are done in code and labelled **Calculated**. Every value shows its provenance: Label, Calculated, Estimated or Interpretation.
+- **NOVA** (`shared/novaAssess.js`). The group is assessed only from the actual ingredient list, never from the name, brand or category. Each ingredient is classified by purpose:
+  - preservatives, antioxidants, acidity regulators, fortificants and processing aids are not ultra-processing markers;
+  - cosmetic additives and industrial substances are, weighed by strength;
+  - each purpose counts only once.
+
+  The output gives the proposed group, the explanation, the supporting ingredients, processing indicators, missing information and a High/Medium/Low confidence, and flags borderline cases. With too little information it shows: "לא ניתן לקבוע סיווג NOVA באופן אמין על סמך המידע הזמין."
+- **Nutritional score, 0–100** (`shared/productEval.js`). Per 100 kcal: fibre, protein, saturated fat, sugar, sodium and ingredient quality. **NOVA is deliberately not part of the score.** Missing data lowers the reliability rating and is listed among the limitations.
+- **Advantages, disadvantages, better alternatives, verification and comparison.** Advantages and disadvantages come with references. When a barcode is found, values are checked against Open Food Facts as a supplementary source. For 2–4 products, the comparison is weighted for your health goals.
+
+On the claude.ai page, links can't be opened, because the sandbox blocks other websites. The page says so and offers label photos (read by Claude) or pasted text instead.
+
 ## Features
 
 - **Onboarding and profile.** Collects age, sex, height and weight, activity, strength training, schedule, number of meals, diet, allergies, budget, cooking time, health goals, conditions and medications. You can edit all of it later.

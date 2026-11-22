@@ -6,6 +6,7 @@ import { sumItems, indicators, dayTotals } from '/shared/nutrition.js';
 import { flagsList, mealArt } from './components.js';
 import { logMeal } from './menu.js';
 import { prefill } from './analyze.js';
+import { queueUrl } from './product.js';
 
 export async function render(view) {
   const tg = state.targets;
@@ -28,6 +29,7 @@ export async function render(view) {
       h('h1', {}, greet, name),
       h('p', { class: 'muted' }, t('homeSub'))),
     analyzeCta(),
+    productCta(),
     flagsList((tg?.flags || []).filter((f) => f.level !== 'info')),
     h('section', { class: 'card' },
       h('div', { class: 'card-head' }, h('h2', {}, t('todayProgress')), h('a', { href: '#dashboard', class: 'link' }, t('details'))),
@@ -73,4 +75,12 @@ function analyzeCta() {
     h('div', { class: 'cta-head' }, h('span', { class: 'cta-ic' }, icon('sparkle', 22)), h('div', {}, h('h2', {}, t('whatDidYouEat')), h('p', {}, t('ctaSub')))),
     ta,
     h('button', { class: 'btn primary block big', onclick: go }, icon('sparkle', 18), ' ', t('analyzeBtn')));
+}
+
+function productCta() {
+  const inp = h('input', { type: 'url', inputmode: 'url', dir: 'ltr', placeholder: t('urlPh'), 'aria-label': t('pasteProductLink') });
+  const go = () => { const v = inp.value.trim(); if (v) queueUrl(v); location.hash = '#product'; };
+  return h('section', { class: 'cta-card cta-link' },
+    h('div', { class: 'cta-head' }, h('span', { class: 'cta-ic alt' }, icon('link', 22)), h('div', {}, h('h2', {}, t('pasteProductLink')), h('p', {}, t('pasteProductLinkSub')))),
+    h('form', { class: 'url-go', onsubmit: (e) => { e.preventDefault(); go(); } }, inp, h('button', { class: 'btn primary', type: 'submit' }, t('analyzeShort'))));
 }
