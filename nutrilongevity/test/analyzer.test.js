@@ -81,3 +81,17 @@ test('AI output is normalised; unknown foods become labelled estimates', () => {
   assert.equal(r.items[1].foodId, 'potato');
   assert.equal(normalizeAiMeal({ items: [] }, 'lentils').mode, 'rules');
 });
+
+test('unknown processing is never counted as NOVA 4 (regression)', () => {
+  // An AI-recognised dish without an ingredient list, even if the model "guessed" NOVA 4
+  const parsed = normalizeAiMeal({ mealName: 'Schnitzel', questions: [], items: [
+    { name: 'schnitzel', foodId: null, grams: 150, quantity: 'estimated', cooking: 'fried', nova: 4, per100: { kcal: 260, protein: 20, carbs: 12, fat: 15, satFat: 2.5, fiber: 0.8, sugars: 1, addedSugar: 0, sodium: 450 } },
+  ] }, 'schnitzel');
+  assert.equal(parsed.items[0].product.nova, null, 'AI-guessed NOVA is discarded');
+  const a = analyzeMeal(parsed.items, {});
+  const proc = a.components.find((c) => c.key === 'processing');
+  assert.equal(proc.points, 7.5, 'neutral, not zero');
+  assert.match(proc.en, /unknown/);
+  assert.ok(!a.evaluation.bad.some((b) => /ultra-processed/i.test(b.en)), 'no ultra-processed claim');
+  assert.notEqual(a.evaluation.frameworks.nova.fit, 'low');
+});

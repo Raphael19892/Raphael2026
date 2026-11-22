@@ -16,6 +16,7 @@ import { generatePlan } from '../shared/planner.js';
 import { analyzeWeek, dailySeries } from '../shared/analysis.js';
 import { searchFoods, ALLERGENS, FOOD_MAP } from '../shared/foods.js';
 import { analyzeIngredients, nutrientDensity, highIn } from '../shared/nova.js';
+import { assessNova } from '../shared/novaAssess.js';
 import { sumItems } from '../shared/nutrition.js';
 import { analyzeMeal } from '../shared/mealScore.js';
 
@@ -376,7 +377,7 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     const analysis = analyzeIngredients(label.ingredientsText || '');
     const per100 = label.per100 || {};
     if (per100.addedSugar == null && label.ingredientsText && !analysis.addedSugars.length) per100.addedSugar = 0;
-    return { product: { id: `label:${Date.now()}`, name: { en: label.productName || 'Scanned label', he: label.productName || 'תווית סרוקה' }, per100, ingredientsText: label.ingredientsText, analysis, nova: analysis.nova, novaSource: 'estimated', status: 'ai-extracted', emoji: '🏷️', basis: label.basis, notes: label.confidenceNotes, density: nutrientDensity(per100), highIn: highIn(per100) } };
+    return { product: { id: `label:${Date.now()}`, name: { en: label.productName || 'Scanned label', he: label.productName || 'תווית סרוקה' }, per100, ingredientsText: label.ingredientsText, analysis, nova: assessNova(label.ingredientsText).group, novaSource: 'ingredients', status: 'ai-extracted', emoji: '🏷️', basis: label.basis, notes: label.confidenceNotes, density: nutrientDensity(per100), highIn: highIn(per100) } };
   });
   route('GET', '/api/saved-products', ({ user }) => ({ products: db.prepare('SELECT id, data FROM saved_products WHERE user_id = ? ORDER BY id DESC LIMIT 50').all(user.id).map((r) => ({ savedId: r.id, ...j(r.data) })) }));
   route('POST', '/api/saved-products', ({ user, body }) => {

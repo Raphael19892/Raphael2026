@@ -68,7 +68,7 @@ export function indicators(items = []) {
     fruitVegG: 0, legumeG: 0, legumeServings: 0, wholeGrainServings: 0, refinedGrainG: 0,
     nutsSeedsG: 0, oliveOilG: 0, fermentedServings: 0, fishServings: 0, oilyFishServings: 0,
     prebioticServings: 0, rsServings: 0, polyphenolServings: 0, leafyG: 0, cruciferG: 0, berryG: 0,
-    plants: new Set(), fiberSources: new Set(), novaKcal: { 1: 0, 2: 0, 3: 0, 4: 0 }, kcal: 0,
+    plants: new Set(), fiberSources: new Set(), novaKcal: { 1: 0, 2: 0, 3: 0, 4: 0, unknown: 0 }, kcal: 0,
   };
   for (const it of items) {
     const f = resolveFood(it);
@@ -77,8 +77,9 @@ export function indicators(items = []) {
     const tags = f.tags || [];
     const kcal = ((f.per100?.kcal || 0) * g) / 100;
     ind.kcal += kcal;
-    const nova = f.nova || 4;
-    ind.novaKcal[nova] = (ind.novaKcal[nova] || 0) + kcal;
+    // Unknown processing stays unknown — it is never counted as NOVA 4.
+    const nova = [1, 2, 3, 4].includes(f.nova) ? f.nova : 'unknown';
+    ind.novaKcal[nova] += kcal;
     if (tags.includes('fv')) ind.fruitVegG += g;
     if (tags.includes('legume')) { ind.legumeG += g; if (g >= 15) ind.legumeServings += g / 90; }
     if (tags.includes('wholegrain')) ind.wholeGrainServings += g / (f.wgServing || 90);
@@ -94,11 +95,12 @@ export function indicators(items = []) {
     if (tags.includes('leafy')) ind.leafyG += g;
     if (tags.includes('crucifer')) ind.cruciferG += g;
     if (tags.includes('berry')) ind.berryG += g;
-    if (f.plant && g >= 3 && (f.nova || 1) < 4) ind.plants.add(f.plant);
+    if (f.plant && g >= 3 && f.nova !== 4) ind.plants.add(f.plant);
     if ((f.per100?.fiber || 0) * g / 100 >= 1) ind.fiberSources.add(f.plant || f.id);
   }
-  const upfPct = ind.kcal > 0 ? (ind.novaKcal[4] / ind.kcal) * 100 : 0;
-  return { ...ind, plants: [...ind.plants], plantCount: ind.plants.size, fiberSources: [...ind.fiberSources], upfPct };
+  const knownKcal = ind.kcal - ind.novaKcal.unknown;
+  const upfPct = knownKcal > 0 ? (ind.novaKcal[4] / knownKcal) * 100 : 0;
+  return { ...ind, plants: [...ind.plants], plantCount: ind.plants.size, fiberSources: [...ind.fiberSources], upfPct, knownKcal, unknownNovaPct: ind.kcal > 0 ? (ind.novaKcal.unknown / ind.kcal) * 100 : 0 };
 }
 
 export function round(x, dp = 0) { const m = 10 ** dp; return Math.round((x || 0) * m) / m; }

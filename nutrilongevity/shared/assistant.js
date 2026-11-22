@@ -180,7 +180,7 @@ ${VOCAB}
 
 Rules:
 - Split the meal into its foods. Map each to the database id of the SAME food (e.g. "whole wheat toast" → ww_bread, "omelette" → eggs plus oil). Break home-made or composite dishes into their likely ingredients from the database when that is reasonable (e.g. a home-made protein pancake → oats, eggs, whey, banana; shakshuka → eggs, tomato, onion, red_pepper, evoo).
-- For a food that is not in the database and cannot be broken down (e.g. a branded product, schnitzel, falafel), set foodId to null and give your best per-100 g estimate in per100 plus its NOVA group; otherwise set per100 and nova to null.
+- For a food that is not in the database and cannot be broken down (e.g. a branded product, schnitzel, falafel), set foodId to null and give your best per-100 g estimate in per100; otherwise set per100 to null. Always set nova to null — processing is assessed only from a real ingredient list, never guessed.
 - grams: use the stated amount; otherwise estimate a typical adult portion and set quantity "estimated". Weights are as eaten (cooked grains and legumes are cooked weight). Add cooking oil when something was fried or sautéed and no fat is mentioned (typically 5 g per item).
 - cooking: fried, baked, grilled, boiled, raw or null.
 - questions: at most 2 short questions, only where an unclear amount would change the result a lot (e.g. "How many slices of pizza?"). Write them in ${lang === 'he' ? 'Hebrew' : 'English'}.
@@ -202,7 +202,7 @@ export function normalizeAiMeal(json, text) {
     const per100 = {};
     for (const k of ['kcal', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sugars', 'addedSugar', 'sodium']) per100[k] = Math.max(0, Number(p[k]) || 0);
     items.push({ grams, label: it.name, quantity: it.quantity === 'stated' ? 'stated' : 'assumed', cooking: it.cooking || null,
-      product: { id: `ai:${String(it.name).slice(0, 40)}`, name: { en: it.name, he: it.name }, per100, nova: [1, 2, 3, 4].includes(it.nova) ? it.nova : null, status: 'ai-estimate', emoji: '🍽️', tags: [] } });
+      product: { id: `ai:${String(it.name).slice(0, 40)}`, name: { en: it.name, he: it.name }, per100, nova: null, novaBasis: 'unknown', status: 'ai-estimate', emoji: '🍽️', tags: [] } });
   }
   if (!items.length) return parseMeal(text);
   return { items, questions: (json.questions || []).slice(0, 3).map((q) => ({ text: String(q) })), unrecognized: [], mealName: json.mealName || '', mode: 'ai' };

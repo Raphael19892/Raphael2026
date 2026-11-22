@@ -3,6 +3,7 @@ import { t, lang } from '../i18n.js';
 import { api, state } from '../api.js';
 import { FOOD_MAP, searchFoods, STATUS_LABEL, NUTRIENT_META } from '/shared/foods.js';
 import { analyzeIngredients, nutrientDensity, compareProducts, highIn } from '/shared/nova.js';
+import { assessNova } from '/shared/novaAssess.js';
 import { conditionFoodRules } from '/shared/engine.js';
 import { isFoodOk } from '/shared/planner.js';
 import { refChip } from './components.js';
@@ -60,14 +61,15 @@ function resultRow(p) {
   return h('button', { class: 'result', onclick: () => productSheet(p) },
     p.image ? h('img', { src: p.image, alt: '', loading: 'lazy', class: 'thumb' }) : h('span', { class: 'ing-emoji' }, p.emoji || '📦'),
     h('div', {}, h('strong', {}, p.name?.[lang()] || p.name?.en), h('small', { class: 'muted' }, [p.brand, kcal != null ? `${fmt(kcal)} kcal/100 g` : null, p.fdcId ? 'USDA FDC' : null].filter(Boolean).join(' · '))),
-    novaBadge(p.nova));
+    novaBadge(p.nova, p.local ? 'typical' : p.novaSource === 'openfoodfacts' ? 'openfoodfacts' : 'ingredients'));
 }
 
 // ── Product / food detail sheet ─────────────────────────────────────────
 export function productSheet(p) {
   const profile = state.profile || {};
   const per = p.per100 || {};
-  const analysis = p.analysis || (p.ingredientsText ? analyzeIngredients(p.ingredientsText) : null);
+  const analysis = p.ingredientsText ? analyzeIngredients(p.ingredientsText) : null; // added-sugar detection
+  const assessed = p.ingredientsText ? assessNova(p.ingredientsText) : null;
   const density = p.density || nutrientDensity(per);
   const hi = p.highIn || highIn(per);
   const allergyHits = (p.allergens || []).filter((a) => (profile.allergies || []).some((x) => a.replace('*', '').includes(x.replace('tree_nuts', 'nuts')) || a.replace('*', '') === x));
@@ -81,17 +83,17 @@ export function productSheet(p) {
     h('div', { class: 'product-head' },
       p.image ? h('img', { src: p.image, alt: '', class: 'product-img' }) : h('span', { class: 'product-emoji' }, p.emoji || '📦'),
       h('div', {}, h('h4', {}, p.name?.[lang()] || p.name?.en), p.brand && h('p', { class: 'muted' }, p.brand),
-        h('div', { class: 'meal-badges' }, novaBadge(p.nova), p.novaSource === 'estimated' && pill(t('novaEstimated')), ...hi.map((x) => pill(`${t('highIn')} ${t(`hi_${x}`)}`, 'bad'))))),
+        h('div', { class: 'meal-badges' }, novaBadge(p.nova, p.local ? 'typical' : p.novaSource === 'openfoodfacts' ? 'openfoodfacts' : 'ingredients'), ...hi.map((x) => pill(`${t('highIn')} ${t(`hi_${x}`)}`, 'bad'))))),
     (allergyHits.length || notOk) && h('div', { class: 'flag flag-stop' }, icon('warn', 18), h('p', {}, t('allergyWarning'), allergyHits.length ? `: ${allergyHits.join(', ')}` : '')),
     caution && h('div', { class: 'flag flag-warn' }, icon('warn', 18), h('p', {}, `${t('cautionFor')}: ${caution}`)),
-    h('p', { class: 'hint' }, t(`nova${p.nova || 'x'}`)),
+    h('p', { class: 'hint' }, p.local ? t('novaTypicalTip') : p.novaSource === 'openfoodfacts' ? t('novaOffTip') : t(`nova${p.nova || 'x'}`)),
     h('h5', {}, t('per100g')),
     h('table', { class: 'ntable' }, h('tbody', {}, ['kcal', 'protein', 'carbs', 'sugars', 'addedSugar', 'fat', 'satFat', 'fiber', 'sodium', 'potassium', 'calcium', 'iron', 'magnesium', 'vitC', 'folate', 'vitB12', 'vitD'].map(row),
       p.poly != null && h('tr', {}, h('th', {}, t('polyphenols'), ' ≈'), h('td', {}, `${fmt(p.poly)} mg `, refChip('perezjimenez2010'))))),
     p.unit && h('p', { class: 'muted small' }, `1 ${p.unit[0]} ≈ ${p.unit[1]} g → ${fmt(per.kcal * p.unit[1] / 100)} kcal, ${fmt(per.fiber * p.unit[1] / 100, 1)} g ${t('fiberShort')}`),
     density && h('div', { class: 'density' }, h('strong', {}, t('nutrientDensity'), `: ${density.score}`),
       h('small', { class: 'muted' }, ` (+${density.positive} / −${density.negative}) `), refChip('fulgoni2009'), h('p', { class: 'hint' }, t('densityNote'))),
-    analysis && analysis.ingredients.length ? ingredientPanel(analysis) : null,
+    assessed ? ingredientPanel(assessed, analysis) : null,
     p.note && h('p', { class: 'hint' }, icon('info', 13), ' ', p.note),
     h('div', { class: 'source-note' }, icon('flask', 14), h('div', {}, (STATUS_LABEL[p.status] || STATUS_LABEL['user-entered'])[lang()], p.usda ? h('div', { class: 'muted small' }, `USDA: “${p.usda}”`) : null,
       p.link ? h('a', { href: p.link, target: '_blank', rel: 'noopener noreferrer' }, t('viewSource'), ' ↗') : null)),
@@ -108,15 +110,18 @@ export function productSheet(p) {
   sheet(p.name?.[lang()] || p.name?.en || t('product'), content);
 }
 
-function ingredientPanel(a) {
+function ingredientPanel(a, sugars) {
+  const L = lang();
   return h('div', { class: 'ing-analysis' },
-    h('h5', {}, t('ingredientAnalysis')),
-    h('p', {}, h('strong', {}, `${t('novaEstimate')}: ${a.nova ?? '?'}`), ' — ', t(`novaReason${a.nova || 'x'}`), ' ', refChip('monteiro2019')),
-    a.upfMarkers.length ? h('div', {}, h('small', { class: 'muted' }, t('upfMarkers')), h('ul', { class: 'marker-list' }, a.upfMarkers.map((m) => h('li', {}, h('strong', {}, t(`mk_${m.label}`) || m.label), ': ', m.matches.join(', '))))) : h('p', { class: 'muted small' }, t('noUpfMarkers')),
-    h('p', {}, h('strong', {}, t('addedSugars')), ': ', a.addedSugars.length ? a.addedSugars.join(', ') : t('noneDetected')),
-    a.preservatives.length ? h('p', {}, h('strong', {}, t('preservatives')), ': ', a.preservatives.join(', ')) : null,
-    h('details', {}, h('summary', {}, `${t('ingredients')} (${a.ingredients.length})`), h('p', { class: 'small' }, a.ingredients.join(' · '))),
-    h('p', { class: 'hint' }, t('ruleBasedNote')));
+    h('h5', {}, t('novaAssessment'), ' ', refChip('monteiro2019')),
+    a.insufficient ? h('p', { class: 'nova-insufficient' }, a.message.he) : h('p', {},
+      novaBadge(a.group), ' ', h('strong', {}, t(`novaName${a.group}`)), ` · ${t('confidence')}: ${t(`conf_${a.confidence}`)}${a.borderline ? ` · ${t('borderline')}` : ''}`),
+    h('p', { class: 'small' }, a.explanation[L] || a.explanation.en),
+    a.supporting?.length ? h('ul', { class: 'marker-list' }, a.supporting.slice(0, 10).map((i) => h('li', {}, `“${i.text}” — ${(L === 'he' ? i.purposeHe : i.purpose) || ''}`))) : null,
+    a.missing?.length ? h('details', {}, h('summary', {}, t('missingInfo')), h('ul', {}, a.missing.map((m) => h('li', { class: 'small' }, m[L] || m.en)))) : null,
+    sugars && h('p', {}, h('strong', {}, t('addedSugars')), ': ', sugars.addedSugars.length ? sugars.addedSugars.join(', ') : t('noneDetected')),
+    h('details', {}, h('summary', {}, `${t('ingredients')} (${a.ingredients.length})`), h('p', { class: 'small' }, a.ingredients.map((i) => i.text).join(' · '))),
+    h('p', { class: 'hint' }, t('novaNotHealth')));
 }
 
 // ── Barcode ─────────────────────────────────────────────────────────────
@@ -192,7 +197,7 @@ function labelTab(body) {
     for (const k of fields) per100[k] = m.per100[k] === '' || m.per100[k] == null ? null : Number(m.per100[k]);
     const analysis = analyzeIngredients(m.ingredients);
     if (per100.addedSugar == null && m.ingredients && !analysis.addedSugars.length) per100.addedSugar = 0;
-    productSheet({ id: `manual:${Date.now()}`, name: { en: m.name || t('myProduct'), he: m.name || t('myProduct') }, per100, ingredientsText: m.ingredients, analysis, nova: analysis.nova, novaSource: 'estimated', status: 'user-entered', emoji: '🏷️' });
+    productSheet({ id: `manual:${Date.now()}`, name: { en: m.name || t('myProduct'), he: m.name || t('myProduct') }, per100, ingredientsText: m.ingredients, nova: assessNova(m.ingredients).group, novaSource: 'ingredients', status: 'user-entered', emoji: '🏷️' });
   } },
   h('h3', {}, t('manualEntry')),
   h('label', { class: 'field' }, h('span', {}, t('productName')), h('input', { type: 'text', oninput: (e) => { m.name = e.target.value; } })),
@@ -217,7 +222,7 @@ function compareTab(body, redraw) {
     const p = compare[key];
     return h('div', { class: `cmp-slot ${p ? 'filled' : ''}` },
       h('small', { class: 'muted' }, key === 'a' ? 'A' : 'B'),
-      p ? h('frag', {}, h('strong', {}, p.name?.[lang()] || p.name?.en), novaBadge(p.nova), h('button', { class: 'icon-btn sm', 'aria-label': t('remove'), onclick: () => { compare[key] = null; redraw(); } }, icon('close', 14)))
+      p ? h('frag', {}, h('strong', {}, p.name?.[lang()] || p.name?.en), novaBadge(p.nova, p.local ? 'typical' : p.novaSource === 'openfoodfacts' ? 'openfoodfacts' : 'ingredients'), h('button', { class: 'icon-btn sm', 'aria-label': t('remove'), onclick: () => { compare[key] = null; redraw(); } }, icon('close', 14)))
         : h('p', { class: 'muted small' }, t('compareEmpty')));
   };
   add(body, h('div', { class: 'cmp-slots' }, slot('a'), slot('b')));
@@ -241,7 +246,7 @@ function compareTab(body, redraw) {
       h('table', { class: 'ntable cmp' },
         h('thead', {}, h('tr', {}, h('th', {}, t('per100g')), h('th', {}, 'A'), h('th', {}, 'B'))),
         h('tbody', {}, keys.map((k) => h('tr', {}, h('th', {}, t(k)), h('td', {}, fmt(a.per100?.[k], 1)), h('td', {}, fmt(b.per100?.[k], 1)))),
-          h('tr', {}, h('th', {}, 'NOVA'), h('td', {}, a.nova ?? '?'), h('td', {}, b.nova ?? '?')),
+          h('tr', {}, h('th', {}, 'NOVA'), h('td', {}, a.nova ? `${a.nova}${a.local ? '*' : ''}` : '?'), h('td', {}, b.nova ? `${b.nova}${b.local ? '*' : ''}` : '?')),
           h('tr', {}, h('th', {}, t('nutrientDensity')), h('td', {}, res.densityA?.score ?? '—'), h('td', {}, res.densityB?.score ?? '—')))),
       h('table', { class: 'ntable cmp' },
         h('thead', {}, h('tr', {}, h('th', {}, t('per100kcal')), h('th', {}, 'A'), h('th', {}, 'B'))),

@@ -542,3 +542,8 @@ blockquote { margin: 6px 0; padding: 8px 12px; border-inline-start: 3px solid va
 .file-btn { position: relative; overflow: hidden; cursor: pointer; }
 .file-btn .file-overlay { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 100px; }
 .file-btn:focus-within { outline: 2.5px solid var(--primary); outline-offset: 2px; }
+/* Typical (not verified) NOVA badges are outlined, not filled */
+.nova.typical { background: transparent !important; border: 1.5px solid currentColor; }
+.nova.typical.nova-1 { color: var(--nova1); } .nova.typical.nova-2 { color: var(--nova2); } .nova.typical.nova-3 { color: color-mix(in srgb, var(--nova3) 80%, var(--text)); } .nova.typical.nova-4 { color: var(--nova4); }
+.nova.nova-x { background: var(--surface-3); color: var(--muted); }
+.fit-unknown { background: var(--surface-2); } .fit-unknown span { color: var(--muted); font-weight: 700; }

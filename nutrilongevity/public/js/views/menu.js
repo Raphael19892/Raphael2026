@@ -80,7 +80,7 @@ function limit(label, v, max, unit) {
 function mealCard(m, mi, day, logged, caution, persist, logs, redraw) {
   const n = sumItems(m.items);
   const isLogged = logged.has(`${m.slot}|${m.name.en}`);
-  const novas = [...new Set(m.items.map((i) => FOOD_MAP[i.foodId]?.nova || i.product?.nova).filter(Boolean))].sort();
+  const novas = [...new Set(m.items.map((i) => FOOD_MAP[i.foodId]?.nova).filter(Boolean))].sort();
   const open = h('div', { class: 'meal-detail', hidden: true });
   const fillDetail = () => {
     fill(open, 
@@ -114,7 +114,7 @@ function mealCard(m, mi, day, logged, caution, persist, logs, redraw) {
           h('span', {}, h('b', {}, fmt(n.kcal)), ' kcal'), h('span', {}, h('b', {}, fmt(n.protein)), ' g P'),
           h('span', {}, h('b', {}, fmt(n.carbs)), ' g C'), h('span', {}, h('b', {}, fmt(n.fat)), ' g F'),
           h('span', {}, h('b', {}, fmt(n.fiber, 1)), ` g ${t('fiberShort')}`)),
-        h('div', { class: 'meal-badges' }, novas.map((x) => novaBadge(x)), n.polyCoverageG > 0 && h('span', { class: 'pill' }, `≈${fmt(n.polyphenols)} mg ${t('polyShort')}`)))),
+        h('div', { class: 'meal-badges' }, novas.map((x) => novaBadge(x, 'typical')), n.polyCoverageG > 0 && h('span', { class: 'pill' }, `≈${fmt(n.polyphenols)} mg ${t('polyShort')}`)))),
     open,
     h('div', { class: 'meal-actions' },
       h('button', { class: `btn small ${isLogged ? 'done' : 'primary'}`, disabled: isLogged, onclick: async () => { await logMeal(m, day.date); toast(t('logged')); logs.push({ date: day.date, slot: m.slot, title: m.name.en }); redraw(); } }, icon('check', 15), ' ', isLogged ? t('eaten') : t('markEaten')),
@@ -139,7 +139,7 @@ function swapSheet(meal, idx, apply) {
     return h('li', {}, h('button', { onclick: () => { apply(nm); s.close(); toast(t('swapped')); } },
       h('span', { class: 'ing-emoji' }, f.emoji),
       h('div', {}, h('strong', {}, f.name[lang()]), h('small', { class: 'muted' }, `${nm.items[idx].grams} g · ${t('fiberShort')} ${d('fiber')} g · P ${d('protein')} g · Na ${d('sodium', 0)} mg`)),
-      novaBadge(f.nova)));
+      novaBadge(f.nova, 'typical')));
   }) : h('li', { class: 'muted' }, t('noSwaps')));
   const s = sheet(`${t('swapIngredient')}: ${cur.name[lang()]}`, h('div', {}, h('p', { class: 'hint' }, t('swapHint')), list));
 }

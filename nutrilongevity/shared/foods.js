@@ -53,7 +53,7 @@ const F = (id, en, he, emoji, group, v, o = {}) => {
   per100.addedSugar = o.addedSugar ?? 0;
   return {
     id, name: { en, he }, emoji, group, per100,
-    tags: o.tags || [], plant: o.plant || null, nova: o.nova ?? 1,
+    tags: o.tags || [], plant: o.plant || null, nova: o.nova ?? 1, novaBasis: 'typical',
     allergens: o.allergens || [], animal: o.animal || null, // 'meat'|'poultry'|'fish'|'dairy'|'egg'
     unit: o.unit || null, usda: o.usda || null, status: o.status || 'usda-transcribed',
     poly: o.poly ?? null, swap: o.swap || null, cost: o.cost || 2, wgServing: o.wgServing || null,

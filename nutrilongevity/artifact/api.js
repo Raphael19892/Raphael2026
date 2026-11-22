@@ -15,6 +15,7 @@ import { analyzeIngredients, nutrientDensity, highIn } from '../shared/nova.js';
 import { sumItems } from '../shared/nutrition.js';
 import { buildContext, fallbackAnswer, extractRefs, stripUnknownRefs, SYSTEM_PROMPT, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
 import { parseMeal } from '../shared/mealParser.js';
+import { assessNova } from '../shared/novaAssess.js';
 import { productPrompt, buildRecord, heuristicExtract } from '../shared/productExtract.js';
 import { analyzeMeal } from '../shared/mealScore.js';
 
@@ -280,7 +281,7 @@ async function handle(method, url, body = {}) {
     const per100 = label?.per100 || {};
     const analysis = analyzeIngredients(label?.ingredientsText || '');
     if (per100.addedSugar == null && label?.ingredientsText && !analysis.addedSugars.length) per100.addedSugar = 0;
-    return { product: { id: `label:${Date.now()}`, name: { en: label?.productName || 'Scanned label', he: label?.productName || 'תווית סרוקה' }, per100, ingredientsText: label?.ingredientsText || '', analysis, nova: analysis.nova, novaSource: 'estimated', status: 'ai-extracted', emoji: '🏷️', basis: label?.basis, notes: label?.confidenceNotes || '', density: nutrientDensity(per100), highIn: highIn(per100) } };
+    return { product: { id: `label:${Date.now()}`, name: { en: label?.productName || 'Scanned label', he: label?.productName || 'תווית סרוקה' }, per100, ingredientsText: label?.ingredientsText || '', analysis, nova: assessNova(label?.ingredientsText || '').group, novaSource: 'ingredients', status: 'ai-extracted', emoji: '🏷️', basis: label?.basis, notes: label?.confidenceNotes || '', density: nutrientDensity(per100), highIn: highIn(per100) } };
   }
   if (p === '/api/saved-products' && method === 'GET') return { products: (await load('saved', { items: [] })).items };
   if (p === '/api/saved-products' && method === 'POST') { const s = await load('saved', { items: [] }); const item = { savedId: await nextId(), ...body.product }; delete item.analysis; s.items.push(item); s.items = s.items.slice(-50); await save('saved', s); return item; }

@@ -156,7 +156,7 @@ function renderResult(host) {
             h('strong', {}, foodName(it)),
             h('small', { class: 'muted' }, `${fmt(ni.kcal)} kcal · P ${fmt(ni.protein, 1)} · ${t('fiberShort')} ${fmt(ni.fiber, 1)} · Na ${fmt(ni.sodium)}`),
             h('span', { class: 'ing-tags' },
-              novaBadge(f?.nova),
+              novaBadge(f?.nova, it.foodId ? 'typical' : (f?.novaBasis || 'ingredients')),
               est ? pill(t('estimated'), 'warn') : pill(t('refData'), 'good'),
               it.quantity === 'assumed' ? pill(t('amountAssumed')) : null,
               it.cooking ? pill(t(`cook_${it.cooking}`)) : null,
@@ -168,6 +168,7 @@ function renderResult(host) {
             h('button', { class: 'icon-btn sm', 'aria-label': t('more'), onclick: () => { items[i] = { ...it, grams: it.grams + stepG(it.grams), quantity: 'stated' }; rerender(); } }, icon('plus', 14))),
           h('button', { class: 'icon-btn sm', 'aria-label': t('remove'), onclick: () => { items.splice(i, 1); if (!items.length) { toast(t('mealEmpty'), 'err'); items.push(it); return; } rerender(); } }, icon('trash', 15)));
       })),
+      h('p', { class: 'hint' }, t('novaTypicalLegend')),
       addIngredient(items, rerender)),
     // 4. Nutrition
     h('section', { class: 'card' },
@@ -193,7 +194,7 @@ function renderResult(host) {
     a.score != null ? h('section', { class: 'card' },
       h('h3', {}, t('frameworkFit')),
       h('div', { class: 'fw-grid' }, Object.entries(a.evaluation.frameworks).map(([k, v]) => h('div', { class: `fw-fit fit-${v.fit}` },
-        h('strong', {}, t(`fwfit_${k}`)), h('span', {}, t(`fit_${v.fit}`)), k === 'nova' ? h('small', {}, `NOVA 4: ${v.share4}%`) : null, h('div', { class: 'ref-row' }, v.refs.map(refChip)))))) : null,
+        h('strong', {}, t(`fwfit_${k}`)), h('span', {}, t(`fit_${v.fit}`)), k === 'nova' ? h('small', {}, v.share4 == null ? t('novaUnknownShort') : `${t('typicalNova4')}: ${v.share4}%`) : null, h('div', { class: 'ref-row' }, v.refs.map(refChip)))))) : null,
     // 7. Score breakdown
     a.score != null ? h('section', { class: 'card' },
       h('h3', {}, t('scoreBreakdown'), ` · ${a.score}/100`),

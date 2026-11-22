@@ -54,11 +54,18 @@ export function scoreMeal(items) {
     `${Math.round(n.sodium)} mg sodium = ${Math.round(nd)} mg per 1000 kcal (full ≤600, zero ≥1600; the daily limit equals ~1000 mg/1000 kcal).`,
     `${Math.round(n.sodium)} מ״ג נתרן = ${Math.round(nd)} מ״ג ל-1000 קק״ל (מלא עד 600, אפס מ-1600).`);
 
-  // 6 Processing (NOVA energy shares)
-  const n4 = ind.novaKcal[4] / E; const n3 = ind.novaKcal[3] / E;
-  add('processing', 15, 1 - n4 - 0.3 * n3, Math.round(n4 * 100),
-    `${Math.round(n4 * 100)}% of energy from ultra-processed (NOVA 4) and ${Math.round(n3 * 100)}% from processed (NOVA 3) foods.`,
-    `${Math.round(n4 * 100)}% מהאנרגיה מאולטרה-מעובד (NOVA 4) ו-${Math.round(n3 * 100)}% ממעובד (NOVA 3).`);
+  // 6 Processing (NOVA energy shares). Only foods with a known processing level count; unknown is never treated as ultra-processed.
+  const known = E - ind.novaKcal.unknown;
+  if (known / E < 0.5) {
+    add('processing', 15, 0.5, null,
+      `Processing level unknown for ${Math.round((ind.novaKcal.unknown / E) * 100)}% of the energy (no ingredient list) — neutral score, not counted as ultra-processed.`,
+      `רמת העיבוד אינה ידועה ל-${Math.round((ind.novaKcal.unknown / E) * 100)}% מהאנרגיה (אין רשימת רכיבים) — ניקוד ניטרלי, לא נספר כאולטרה-מעובד.`);
+  } else {
+    const n4 = ind.novaKcal[4] / known; const n3 = ind.novaKcal[3] / known;
+    add('processing', 15, 1 - n4 - 0.3 * n3, Math.round(n4 * 100),
+      `${Math.round(n4 * 100)}% of the energy from foods that are typically ultra-processed (NOVA 4) and ${Math.round(n3 * 100)}% typically processed (NOVA 3) — typical levels for these food types, not checked against product labels${ind.novaKcal.unknown ? '; foods with unknown processing are excluded' : ''}.`,
+      `${Math.round(n4 * 100)}% מהאנרגיה ממזונות שבדרך כלל אולטרה-מעובדים (NOVA 4) ו-${Math.round(n3 * 100)}% בדרך כלל מעובדים (NOVA 3) — רמות טיפוסיות לסוגי המזון, לא נבדקו מול תוויות${ind.novaKcal.unknown ? '; מזונות שרמת עיבודם אינה ידועה לא נכללו' : ''}.`);
+  }
 
   // 7 Plant diversity
   const pc = ind.plantCount;
@@ -105,8 +112,10 @@ export function evaluateMeal(items, scored = scoreMeal(items)) {
   if (ind.plantCount >= 4) good.push(L(`${ind.plantCount} different plant foods — good diversity.`, `${ind.plantCount} מזונות צמחיים שונים — מגוון טוב.`, ['mcdonald2018']));
   if (n.protein >= 20) good.push(L(`${Math.round(n.protein)} g protein supports muscle maintenance.`, `${Math.round(n.protein)} ג׳ חלבון תומכים בשמירת שריר.`, ['bauer2013', 'jager2017']));
 
-  const n4 = ind.novaKcal[4] / E;
-  if (n4 >= 0.3) bad.push(L(`${Math.round(n4 * 100)}% of the energy is ultra-processed (${items.filter((it) => resolveFood(it)?.nova === 4).map((it) => resolveFood(it).name.en).join(', ')}).`, `${Math.round(n4 * 100)}% מהאנרגיה אולטרה-מעובדת.`, ['hall2019', 'lane2024']));
+  const knownE = E - ind.novaKcal.unknown;
+  const n4 = knownE > 0 ? ind.novaKcal[4] / knownE : 0;
+  const upfNames = items.filter((it) => resolveFood(it)?.nova === 4);
+  if (knownE / E >= 0.5 && n4 >= 0.3) bad.push(L(`Foods that are usually ultra-processed (${upfNames.map((it) => resolveFood(it).name.en).join(', ')}) — typical for this food type; check the actual product's ingredient list to confirm.`, `מזונות שבדרך כלל אולטרה-מעובדים (${upfNames.map((it) => resolveFood(it).name.he).join(', ')}) — טיפוסי לסוג המזון; כדי לאשר יש לבדוק את רשימת הרכיבים של המוצר בפועל.`, ['hall2019', 'lane2024']));
   if (has(items, 'sweetdrink')) bad.push(L('Sugar-sweetened drink or juice: sugar without fibre; regular intake is associated with higher type 2 diabetes risk.', 'משקה ממותק או מיץ: סוכר ללא סיבים; צריכה קבועה קשורה לסיכון מוגבר לסוכרת סוג 2.', ['imamura2015', 'who2015sugars']));
   else if ((n.addedSugar * 4) / E >= 0.1 || n.addedSugar >= 15) bad.push(L(`${r1(n.addedSugar)} g added sugar.`, `${r1(n.addedSugar)} ג׳ סוכר מוסף.`, ['who2015sugars']));
   if ((n.satFat * 9) / E > 0.1 && n.satFat >= 5) bad.push(L(`Saturated fat ${r1(n.satFat)} g (${Math.round((n.satFat * 900) / E)}% of energy; guideline <10%).`, `שומן רווי ${r1(n.satFat)} ג׳.`, ['dga2020']));
@@ -131,7 +140,7 @@ function frameworkFit(items, { totals: n, ind }) {
   const plantProt = has(items, 'legume') || has(items, 'nut') || has(items, 'seed');
   const healthyFat = has(items, 'oliveoil') || has(items, 'nut') || items.some((i) => ['avocado', 'tahini', 'olives'].includes(i.foodId));
   const meat = has(items, 'redmeat') || has(items, 'processedmeat');
-  const upf = ind.novaKcal[4] / E >= 0.3;
+  const knownE = E - ind.novaKcal.unknown; const upf = knownE / E >= 0.5 && ind.novaKcal[4] / knownE >= 0.3;
   const sugar = (n.addedSugar * 4) / E >= 0.1;
   const lowSod = (n.sodium / E) * 1000 <= 1000;
   const lowSat = (n.satFat * 9) / E <= 0.1;
@@ -141,7 +150,7 @@ function frameworkFit(items, { totals: n, ind }) {
     med: { fit: rate([fv, fiberOk, healthyFat, plantProt || has(items, 'fish')].filter(Boolean).length, [meat, upf, sugar].filter(Boolean).length), refs: ['predimed2018', 'dinu2018'] },
     greenmed: { fit: rate([polys >= 1, plantProt, fv, items.some((i) => ['green_tea', 'walnuts'].includes(i.foodId))].filter(Boolean).length, [meat, upf].filter(Boolean).length), refs: ['tsaban2021'] },
     dash: { fit: rate([fv, lowSod, lowSat, plantProt || has(items, 'dairy')].filter(Boolean).length, [!lowSod, sugar].filter(Boolean).length), refs: ['appel1997', 'sacks2001'] },
-    nova: { fit: upf ? 'low' : ind.novaKcal[4] / E > 0.1 ? 'partial' : 'high', share4: Math.round((ind.novaKcal[4] / E) * 100), refs: ['monteiro2019'] },
+    nova: { fit: knownE / E < 0.5 ? 'unknown' : upf ? 'low' : ind.novaKcal[4] / knownE > 0.1 ? 'partial' : 'high', share4: knownE > 0 ? Math.round((ind.novaKcal[4] / knownE) * 100) : null, typical: true, refs: ['monteiro2019'] },
     gut: { fit: rate([fiberOk, ind.plantCount >= 3, ind.prebioticServings > 0, ind.fermentedServings > 0 || ind.rsServings > 0].filter(Boolean).length, [upf && !fiberOk].filter(Boolean).length), refs: ['makki2018', 'wastyk2021'] },
     cardio: { fit: rate([fiberOk, lowSat, lowSod, fv].filter(Boolean).length, [!lowSat, !lowSod, sugar].filter(Boolean).length), refs: ['reynolds2019', 'he2013'] },
   };

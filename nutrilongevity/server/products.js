@@ -1,6 +1,7 @@
 // External food databases: Open Food Facts (barcodes, packaged products) and, optionally,
 // USDA FoodData Central search (set FDC_API_KEY). Results are normalised to the app's per-100 g shape.
 import { analyzeIngredients, nutrientDensity, highIn } from '../shared/nova.js';
+import { assessNova } from '../shared/novaAssess.js';
 
 const OFF = 'https://world.openfoodfacts.org';
 const UA = 'NutriLongevityAI/1.0 (open-source nutrition app)';
@@ -30,7 +31,7 @@ export function normalizeOff(p, barcode) {
     brand: p.brands || '', image: p.image_front_small_url || p.image_small_url || null,
     quantity: p.quantity || '', servingG: num(p.serving_quantity),
     per100, ingredientsText, analysis,
-    nova: offNova || analysis.nova, novaSource: offNova ? 'openfoodfacts' : 'estimated',
+    nova: offNova || assessNova(ingredientsText).group, novaSource: offNova ? 'openfoodfacts' : 'ingredients',
     allergens: (p.allergens_tags || []).map((t) => t.replace(/^en:/, '')),
     tags: [], plant: null, emoji: '📦', group: 'packaged',
     density: nutrientDensity(per100), highIn: highIn(per100),

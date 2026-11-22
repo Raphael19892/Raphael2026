@@ -191,7 +191,7 @@ function logRow(rec, nova) {
   return h('div', { class: 'log-row' }, h('label', {}, t('amount'), g, ' g'),
     h('button', { class: 'btn small primary', onclick: async () => {
       const per100 = per100Values(rec.nutrition);
-      await api('/api/logs', { method: 'POST', body: { date: todayIso(), slot: 'snack', title: rec.identity.name || 'Product', source: 'product', items: [{ grams: Number(g.value), product: { id: `prod:${rec.identity.barcode || rec.identity.name || Date.now()}`, name: { en: rec.identity.name || 'Product', he: rec.identity.name || 'מוצר' }, brand: rec.identity.brand || '', per100, nova: nova.group, status: rec.extraction === 'ai' && rec.source.type !== 'url' ? 'ai-extracted' : 'label-declared', emoji: '🏷️' } }] } });
+      await api('/api/logs', { method: 'POST', body: { date: todayIso(), slot: 'snack', title: rec.identity.name || 'Product', source: 'product', items: [{ grams: Number(g.value), product: { id: `prod:${rec.identity.barcode || rec.identity.name || Date.now()}`, name: { en: rec.identity.name || 'Product', he: rec.identity.name || 'מוצר' }, brand: rec.identity.brand || '', per100, nova: nova.group, novaBasis: 'ingredients', status: rec.extraction === 'ai' && rec.source.type !== 'url' ? 'ai-extracted' : 'label-declared', emoji: '🏷️' } }] } });
       toast(t('logged'));
     } }, icon('plus', 15), ' ', t('addToDiary')));
 }
