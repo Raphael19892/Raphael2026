@@ -1,4 +1,4 @@
-import { h, fill, add, icon, fmt, sheet, toast, todayIso, novaBadge, pill, loading, segmented } from '../ui.js';
+import { h, fill, add, icon, fmt, sheet, toast, todayIso, novaBadge, pill, loading, segmented, imagePicker } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { api, state } from '../api.js';
 import { FOOD_MAP, searchFoods, STATUS_LABEL, NUTRIENT_META } from '/shared/foods.js';
@@ -174,17 +174,14 @@ function barcodeTab(body) {
 // ── Label upload / manual entry ─────────────────────────────────────────
 function labelTab(body) {
   const status = h('div');
-  const file = h('input', { type: 'file', accept: 'image/*', capture: 'environment', hidden: true, onchange: async () => {
-    const f = file.files[0]; if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { status.textContent = t('imageTooLarge'); return; }
+  const file = imagePicker(async (img) => {
     fill(status, loading(t('readingLabel')));
-    const b64 = await new Promise((res) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.readAsDataURL(f); });
     try {
-      const { product } = await api('/api/scan/label', { method: 'POST', body: { imageBase64: b64, mediaType: f.type } });
+      const { product } = await api('/api/scan/label', { method: 'POST', body: { imageBase64: img.b64, mediaType: img.type } });
       fill(status, h('p', { class: 'hint' }, product.notes || ''));
       productSheet(product);
     } catch (e) { fill(status, h('p', { class: 'form-error' }, e.message)); }
-  } });
+  });
 
   // Manual entry
   const m = { name: '', ingredients: '', per100: {} };
@@ -208,7 +205,7 @@ function labelTab(body) {
     h('div', { class: 'card scan-card' },
       h('div', { class: 'scan-illu' }, icon('upload', 42)),
       h('p', {}, t('labelIntro')),
-      h('button', { class: 'btn primary block', disabled: !(state.status.labelAi ?? state.status.ai), onclick: () => file.click() }, icon('camera', 17), ' ', t('uploadLabel')),
+      h('button', { class: 'btn primary block', onclick: () => ((state.status.labelAi ?? state.status.ai) ? file.click() : toast(t('photoNoAi'), 'err')) }, icon('camera', 17), ' ', t('uploadLabel')),
       !(state.status.labelAi ?? state.status.ai) && h('p', { class: 'hint' }, t('labelNeedsAi')),
       file, status),
     manual);

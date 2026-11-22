@@ -139,3 +139,35 @@ export function linkify(text) {
 /** replaceChildren / append that flatten arrays and skip null/false (like h()). */
 export function fill(el, ...kids) { el.replaceChildren(h('frag', {}, ...kids)); return el; }
 export function add(el, ...kids) { el.append(h('frag', {}, ...kids)); return el; }
+
+/**
+ * Prepare a photo for upload: decode (JPEG/PNG/WebP/HEIC where the browser can), downscale and
+ * re-encode as JPEG so phone photos (often 5–10 MB) stay well under upload limits.
+ * Returns { b64, type, thumb, dataUrl } or throws Error('decode').
+ */
+export async function compressImage(file, max = 1600, quality = 0.85) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error('decode')); i.src = url; });
+    const draw = (m, q) => {
+      const s = Math.min(1, m / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.naturalWidth * s)); c.height = Math.max(1, Math.round(img.naturalHeight * s));
+      const ctx = c.getContext('2d'); ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height); ctx.drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', q);
+    };
+    const dataUrl = draw(max, quality);
+    return { b64: dataUrl.split(',')[1], type: 'image/jpeg', dataUrl, thumb: draw(200, 0.7) };
+  } finally { URL.revokeObjectURL(url); }
+}
+
+/** A hidden file input for images WITHOUT `capture`, so phones offer both the camera and the gallery. */
+export function imagePicker(onPick) {
+  const input = h('input', { type: 'file', accept: 'image/*', hidden: true });
+  input.addEventListener('change', async () => {
+    const f = input.files[0]; input.value = '';
+    if (!f) return;
+    try { await onPick(await compressImage(f), f); } catch { toast(t('photoFailed'), 'err'); }
+  });
+  return input;
+}

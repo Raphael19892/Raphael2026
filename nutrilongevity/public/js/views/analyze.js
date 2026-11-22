@@ -1,6 +1,6 @@
 // Analyze Food — describe (or photograph) what you ate; get nutrition, a transparent quality score,
 // an evidence-based evaluation and concrete improvements. Every analysis is saved to the diary.
-import { h, fill, add, icon, fmt, toast, todayIso, novaBadge, pill, loading, segmented } from '../ui.js';
+import { h, fill, add, icon, fmt, toast, todayIso, novaBadge, pill, loading, segmented, imagePicker } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { api, state } from '../api.js';
 import { FOOD_MAP, searchFoods, STATUS_LABEL } from '/shared/foods.js';
@@ -43,10 +43,12 @@ function describeTab(body) {
   const ta = h('textarea', { id: 'meal-text', rows: 3, maxlength: 2000, placeholder: t('analyzePh'), 'aria-label': t('analyzePh'), oninput: (e) => { d.text = e.target.value; } });
   ta.value = d.text || '';
   const thumb = h('div', { class: 'photo-prev', hidden: true });
-  const fileIn = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', capture: 'environment', hidden: true, onchange: async () => {
-    const f = fileIn.files[0]; if (!f) return;
-    try { photo = await preparePhoto(f); fill(thumb, h('img', { src: photo.thumb, alt: '' }), h('button', { class: 'icon-btn sm', 'aria-label': t('remove'), onclick: () => { photo = null; thumb.hidden = true; } }, icon('close', 14))); thumb.hidden = false; } catch { toast(t('photoFailed'), 'err'); }
-  } });
+  const fileIn = imagePicker((img) => {
+    photo = img;
+    fill(thumb, h('img', { src: photo.thumb, alt: '' }), h('button', { class: 'icon-btn sm', 'aria-label': t('remove'), onclick: () => { photo = null; thumb.hidden = true; } }, icon('close', 14)));
+    thumb.hidden = false;
+    if (!state.status.photoAi) toast(t('photoNoAi'), 'err');
+  });
   const slotSel = h('select', { 'aria-label': t('mealSlot'), onchange: (e) => { d.slot = e.target.value; } }, ['breakfast', 'lunch', 'dinner', 'snack'].map((s) => h('option', { value: s, selected: s === d.slot }, t(`slot_${s}`))));
   const go = h('button', { class: 'btn primary big', onclick: () => run() }, icon('sparkle', 18), ' ', t('analyzeBtn'));
   const result = h('div', { class: 'analysis' });
@@ -54,9 +56,10 @@ function describeTab(body) {
   async function run() {
     const text = ta.value.trim();
     if (!text && !photo) { ta.focus(); toast(t('describeFirst'), 'err'); return; }
+    if (photo && !text && !state.status.photoAi) { toast(t('photoNoAi'), 'err'); ta.focus(); return; }
     go.disabled = true; fill(result, loading(t('analyzingMeal')));
     try {
-      const parsed = await api('/api/analyze/meal', { method: 'POST', body: { text, lang: lang(), imageBase64: photo?.b64, mediaType: photo?.type } });
+      const parsed = await api('/api/analyze/meal', { method: 'POST', body: { text, lang: lang(), imageBase64: state.status.photoAi ? photo?.b64 : undefined, mediaType: photo?.type } });
       if (!parsed.items.length) {
         fill(result, h('div', { class: 'card' }, h('h3', {}, t('notRecognized')), h('p', {}, t('notRecognizedText')), parsed.unrecognized?.length ? h('p', { class: 'muted' }, `“${parsed.unrecognized.join('”, “')}”`) : null));
         go.disabled = false; return;
@@ -80,7 +83,7 @@ function describeTab(body) {
       h('div', { class: 'chips examples' }, EXAMPLES[lang()].map((ex) => h('button', { class: 'chip', type: 'button', onclick: () => { ta.value = ex; d.text = ex; } }, ex))),
       thumb, fileIn,
       h('div', { class: 'analyze-row' },
-        state.status.photoAi ? h('button', { class: 'btn', type: 'button', onclick: () => fileIn.click() }, icon('camera', 17), ' ', t('addPhoto')) : null,
+        h('button', { class: 'btn', type: 'button', onclick: () => fileIn.click() }, icon('camera', 17), ' ', t('addPhoto')),
         slotSel, go),
       h('p', { class: 'hint' }, state.status.ai ? t('analyzeAiNote') : t('analyzeRulesNote'))),
     result);
@@ -240,19 +243,5 @@ function addIngredient(items, rerender) {
   return h('div', { class: 'add-ing' }, h('div', { class: 'search-box' }, icon('plus', 16), input), list);
 }
 
-async function preparePhoto(file) {
-  const url = URL.createObjectURL(file);
-  try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const draw = (max, q) => {
-      const s = Math.min(1, max / Math.max(img.width, img.height));
-      const c = document.createElement('canvas'); c.width = Math.round(img.width * s); c.height = Math.round(img.height * s);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      return c.toDataURL('image/jpeg', q);
-    };
-    const full = draw(1280, 0.85);
-    return { b64: full.split(',')[1], type: 'image/jpeg', thumb: draw(200, 0.7) };
-  } finally { URL.revokeObjectURL(url); }
-}
 
 export { STATUS_LABEL };

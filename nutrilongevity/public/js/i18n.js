@@ -26,7 +26,7 @@ const D = {
   tabDescribe: ['Describe a meal', 'תיאור ארוחה'], tabProducts: ['Products', 'מוצרים'],
   whatDidYouEat: ['What did you eat?', 'מה אכלת?'], ctaSub: ['Write it in your own words — get nutrition, a score and how to improve it.', 'כתבו במילים שלכם — וקבלו ערכים תזונתיים, ציון והצעות לשיפור.'],
   analyzePh: ['e.g. Yogurt with oats, chia seeds and a kiwi', 'למשל: יוגורט עם שיבולת שועל, צ׳יה וקיווי'],
-  analyzeBtn: ['Analyze', 'נתח את הארוחה'], addPhoto: ['Add photo', 'הוספת תמונה'], photoFailed: ['Could not read that photo.', 'לא ניתן לקרוא את התמונה.'], mealSlot: ['Meal', 'ארוחה'],
+  analyzeBtn: ['Analyze', 'נתח את הארוחה'], addPhoto: ['Add photo', 'הוספת תמונה'], photoFailed: ['This image could not be opened. Try a JPEG or PNG photo (or a screenshot).', 'לא ניתן לפתוח את התמונה. נסו תמונת JPEG או PNG (או צילום מסך).'], mealSlot: ['Meal', 'ארוחה'],
   describeFirst: ['Describe what you ate first.', 'תארו קודם מה אכלתם.'], analyzingMeal: ['Analysing your meal…', 'מנתח את הארוחה…'],
   analyzeAiNote: ['Claude identifies the foods and amounts; nutrition is calculated from the reference food database. Foods outside it are marked as AI estimates.', 'Claude מזהה את המזונות והכמויות; הערכים מחושבים ממאגר המזון. מזונות שאינם במאגר מסומנים כהערכת AI.'],
   analyzeRulesNote: ['Offline mode: foods are recognised from the app’s database by name. Check the amounts below.', 'מצב לא מקוון: המזונות מזוהים לפי שם ממאגר האפליקציה. בדקו את הכמויות.'],

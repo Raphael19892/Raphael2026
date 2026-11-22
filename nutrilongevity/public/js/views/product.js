@@ -1,7 +1,7 @@
 // Product & Link Intelligence — paste product links (or a label photo / PDF / text) and get identification,
 // ingredient analysis, nutrition with provenance, an evidence-based NOVA assessment with confidence,
 // a separate nutritional score, pros/cons, alternatives and a goal-aware comparison.
-import { h, fill, add, icon, fmt, toast, todayIso, dateLabel, pill, loading } from '../ui.js';
+import { h, fill, add, icon, fmt, toast, todayIso, dateLabel, pill, loading, imagePicker } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { api, state } from '../api.js';
 import { evaluateProduct, compareMany, per100Values } from '/shared/productEval.js';
@@ -44,7 +44,7 @@ export async function render(view) {
   const drawResults = () => fill(out, results.map((r, i) => resultCard(r, i, run)), comparison(results.filter((r) => r.resp.ok && r.eval)));
 
   // Alternatives to a link: label photo, PDF, pasted text
-  const photoIn = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', capture: 'environment', hidden: true, onchange: async () => { const f = photoIn.files[0]; if (!f) return; const b = await toB64(f); run({ imageBase64: b, mediaType: f.type }); } });
+  const photoIn = imagePicker((img) => run({ imageBase64: img.b64, mediaType: img.type }));
   const pdfIn = h('input', { type: 'file', accept: 'application/pdf', hidden: true, onchange: async () => { const f = pdfIn.files[0]; if (!f) return; if (f.size > 7e6) { toast(t('fileTooLarge'), 'err'); return; } run({ pdfBase64: await toB64(f) }); } });
   const pasteTa = h('textarea', { rows: 5, placeholder: t('pasteLabelPh'), 'aria-label': t('pasteLabel') });
 
@@ -60,7 +60,7 @@ export async function render(view) {
       !state.status.productLinks && h('div', { class: 'flag flag-warn' }, icon('info', 18), h('p', {}, t('linksNotHere'))),
       h('details', { class: 'alt-inputs' }, h('summary', {}, t('noLinkOptions')),
         h('div', { class: 'row-actions' },
-          (state.status.labelAi || state.status.photoAi) && h('button', { class: 'btn small', onclick: () => photoIn.click() }, icon('camera', 15), ' ', t('uploadLabel')),
+          h('button', { class: 'btn small', onclick: () => photoButton(photoIn) }, icon('camera', 15), ' ', t('uploadLabel')),
           state.status.productLinks && state.status.ai && h('button', { class: 'btn small', onclick: () => pdfIn.click() }, icon('upload', 15), ' ', t('uploadPdf'))),
         pasteTa,
         h('button', { class: 'btn small', onclick: () => { if (pasteTa.value.trim()) run({ text: pasteTa.value.trim() }); } }, t('analyzeText')),
@@ -73,7 +73,7 @@ export async function render(view) {
 // When a link cannot be read: open the page yourself, then paste its text or upload a screenshot of the label.
 function fallbackBox(url, run) {
   const ta = h('textarea', { rows: 5, placeholder: t('pasteLabelPh'), 'aria-label': t('pasteLabel') });
-  const shot = h('input', { type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true, onchange: async () => { const f = shot.files[0]; if (f) run({ imageBase64: await toB64(f), mediaType: f.type }); } });
+  const shot = imagePicker((img) => run({ imageBase64: img.b64, mediaType: img.type }));
   return h('div', { class: 'fallback-box' },
     h('ol', { class: 'steps' },
       h('li', {}, h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener noreferrer' }, icon('link', 14), ' ', t('openPage'))),
@@ -82,8 +82,14 @@ function fallbackBox(url, run) {
     ta,
     h('div', { class: 'row-actions' },
       h('button', { class: 'btn primary small', onclick: () => { if (ta.value.trim()) run({ text: ta.value.trim() }); else toast(t('pasteFirst'), 'err'); } }, icon('sparkle', 14), ' ', t('analyzeText')),
-      (state.status.labelAi || state.status.photoAi) && h('button', { class: 'btn small', onclick: () => shot.click() }, icon('camera', 14), ' ', t('uploadScreenshot'))),
+      h('button', { class: 'btn small', onclick: () => photoButton(shot) }, icon('camera', 14), ' ', t('uploadScreenshot'))),
     shot);
+}
+
+// Photos need Claude to read them; explain instead of silently hiding the button.
+function photoButton(input) {
+  if (!(state.status.labelAi || state.status.photoAi)) { toast(t('photoNoAi'), 'err'); return; }
+  input.click();
 }
 
 function toB64(file) { return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1]); r.onerror = rej; r.readAsDataURL(file); }); }
