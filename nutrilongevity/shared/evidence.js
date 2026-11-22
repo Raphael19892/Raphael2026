@@ -248,6 +248,16 @@ export const REFERENCES = [
     inference: 'consensus', level: 'established', topics: ['red_meat'], frameworks: ['plantforward'],
   },
 
+  {
+    id: 'imamura2015', title: 'Consumption of sugar sweetened beverages, artificially sweetened beverages, and fruit juice and incidence of type 2 diabetes: systematic review, meta-analysis, and estimation of population attributable fraction',
+    authors: 'Imamura F, O’Connor L, Ye Z, et al.', journal: 'BMJ', year: 2015, doi: '10.1136/bmj.h3576',
+    design: 'Systematic review and meta-analysis of prospective cohort studies', n: null,
+    findings: 'Each additional daily serving of sugar-sweetened beverages was associated with ~18% higher incidence of type 2 diabetes (13% after adjusting for adiposity). Artificially sweetened beverages and fruit juice showed weaker associations, with likely bias.',
+    strengths: 'Large pooled cohorts; sensitivity analyses for adiposity and publication bias.',
+    limitations: 'Observational; residual confounding; dietary self-report.',
+    inference: 'association', level: 'established', topics: ['metabolic', 'glucose'], frameworks: [],
+  },
+
   // ── Polyphenols ────────────────────────────────────────────────────────
   {
     id: 'perezjimenez2010', title: 'Identification of the 100 richest dietary sources of polyphenols: an application of the Phenol-Explorer database',

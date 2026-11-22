@@ -36,6 +36,20 @@ To install it on Android, open the site in Chrome and choose **Add to Home scree
 
 Not available there: barcode lookup (no camera access, and Open Food Facts can't be reached from the page) and live USDA search. The self-hosted server version keeps both.
 
+## AI Food Analyzer (core feature)
+
+Describe what you ate in Hebrew or English, for example "I ate two slices of pizza and drank a Coca-Cola" or "אכלתי שתי פרוסות לחם מלא עם אבוקדו וחביתה". You can also add a photo.
+
+1. **Recognition.** Claude maps each food to the reference database and estimates amounts, using a JSON schema for the output (`shared/assistant.js`). It splits home-made dishes into their ingredients and adds frying oil. Foods outside the database get an estimate per 100 g, labelled **AI estimate**. Without AI, `shared/mealParser.js` recognises about 120 foods by their Hebrew/English names, including Hebrew prefixes, number words ("שתי", "half a"), units and cooking words. It also reports any part of the description it couldn't recognise.
+2. **Amounts.** Every amount is marked as stated or assumed. Assumed amounts that matter come with one-tap options.
+3. **Nutrition.** Values are calculated from grams × the reference composition, and the source is shown for every item.
+4. **Meal Quality Score, 0–100** (`shared/mealScore.js`). Eight components, each measured per 1000 kcal against WHO, DGA and IOM reference values, so portion size doesn't change the score. Each component shows its points and the reason. It is a descriptive index, not a validated medical measure.
+5. **Scientific evaluation.** What is beneficial, less beneficial and missing, each with references. It also shows how well the meal fits the Mediterranean, Green-Med, DASH, NOVA, gut-health and cardiometabolic patterns.
+6. **Improvements.** Concrete swaps and additions, re-scored with before/after differences and an Apply button. They are filtered by your diet and allergies.
+7. **Food Diary.** Every analysis is saved automatically, grouped by meal and day, with daily totals (calories, protein, fibre, polyphenols, plant diversity, added sugar, sodium). You can edit, move or delete entries.
+
+The Research library also has a live **PubMed** search for recent meta-analyses, RCTs and guidelines (self-hosted version). Those results are marked "not yet appraised".
+
 ## Features
 
 - **Onboarding and profile.** Collects age, sex, height and weight, activity, strength training, schedule, number of meals, diet, allergies, budget, cooking time, health goals, conditions and medications. You can edit all of it later.

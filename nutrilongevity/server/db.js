@@ -77,7 +77,13 @@ export function openDb(file) {
       data TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
+    CREATE TABLE IF NOT EXISTS research_cache (
+      query TEXT PRIMARY KEY,
+      data TEXT NOT NULL,
+      fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
   `);
+  try { db.exec('ALTER TABLE logs ADD COLUMN meta TEXT'); } catch { /* column exists */ }
   return db;
 }
 

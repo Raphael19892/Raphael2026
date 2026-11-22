@@ -94,7 +94,7 @@ export function indicators(items = []) {
     if (tags.includes('leafy')) ind.leafyG += g;
     if (tags.includes('crucifer')) ind.cruciferG += g;
     if (tags.includes('berry')) ind.berryG += g;
-    if (f.plant && g >= 3) ind.plants.add(f.plant);
+    if (f.plant && g >= 3 && (f.nova || 1) < 4) ind.plants.add(f.plant);
     if ((f.per100?.fiber || 0) * g / 100 >= 1) ind.fiberSources.add(f.plant || f.id);
   }
   const upfPct = ind.kcal > 0 ? (ind.novaKcal[4] / ind.kcal) * 100 : 0;

@@ -1,4 +1,5 @@
-import { h, fill, add, icon, pill, segmented } from '../ui.js';
+import { h, fill, add, icon, pill, segmented, loading } from '../ui.js';
+import { api, state } from '../api.js';
 import { t, lang } from '../i18n.js';
 import { REFERENCES, FRAMEWORKS } from '/shared/evidence.js';
 import { refDetail, refChip } from './components.js';
@@ -13,8 +14,8 @@ export async function render(view) {
   const body = h('div');
   const draw = () => {
     fill(view, h('h1', {}, t('nav_research')), h('p', { class: 'muted' }, t('researchIntro')),
-      segmented([['frameworks', t('frameworks')], ['library', t('library')], ['method', t('howToRead')]], tab, (v) => { tab = v; draw(); }), body);
-    fill(body, ...({ frameworks, library, method }[tab])(draw));
+      segmented([['frameworks', t('frameworks')], ['library', t('library')], ...(state.status.pubmed ? [['latest', t('latestResearch')]] : []), ['method', t('howToRead')]], tab, (v) => { tab = v; draw(); }), body);
+    fill(body, ...({ frameworks, library, method, latest }[tab] || frameworks)(draw));
   };
   draw();
 }
@@ -60,5 +61,30 @@ function method() {
       h('dl', { class: 'ref-dl' }, rows.flatMap((r) => [h('dt', {}, pill(t(`inf_${r}`), `inf-${r}`)), h('dd', {}, t(`infExplain_${r}`))]))),
     h('div', { class: 'card' }, h('h3', {}, t('dataSourcesTitle')), h('p', {}, t('dataSourcesText')), h('div', { class: 'ref-row' }, refChip('perezjimenez2010'), refChip('fulgoni2009'), refChip('mifflin1990'))),
     h('div', { class: 'card' }, h('h3', {}, t('scoresTitle')), h('p', {}, t('scoresText'))),
+  ];
+}
+
+let lastQ = ''; let lastResults = null;
+function latest() {
+  const out = h('div');
+  const show = (res) => fill(out, res.length ? res.map((r) => h('article', { class: 'card ref-card' },
+    h('strong', {}, r.title),
+    h('small', { class: 'muted' }, `${r.authors} · ${r.journal} · ${r.pubdate || r.year || ''}`),
+    h('div', { class: 'ref-tags' }, pill(t('notAppraised'), 'inf-association'), r.types.map((x) => pill(x))),
+    h('div', { class: 'row-actions' },
+      h('a', { class: 'btn ghost small', href: r.url, target: '_blank', rel: 'noopener noreferrer' }, 'PubMed ↗'),
+      r.doi ? h('a', { class: 'btn ghost small', href: `https://doi.org/${r.doi}`, target: '_blank', rel: 'noopener noreferrer' }, `DOI ↗`) : null))) : h('p', { class: 'muted' }, t('noResults')));
+  const input = h('input', { type: 'search', value: lastQ, placeholder: t('pubmedPh'), 'aria-label': t('pubmedPh') });
+  const run = async (e) => {
+    e?.preventDefault();
+    const q = input.value.trim(); if (q.length < 3) return;
+    lastQ = q; fill(out, loading(t('searchingPubmed')));
+    try { const r = await api(`/api/research/search?q=${encodeURIComponent(q)}`); lastResults = r.results; show(r.results); } catch (ex) { fill(out, h('p', { class: 'form-error' }, ex.message)); }
+  };
+  if (lastResults) show(lastResults);
+  return [
+    h('p', { class: 'hint' }, t('latestIntro')),
+    h('form', { class: 'search-box', onsubmit: run }, icon('search', 18), input, h('button', { class: 'btn small primary', type: 'submit' }, t('lookup'))),
+    out,
   ];
 }

@@ -77,3 +77,16 @@ export function donut(parts, { size = 96, stroke = 14, center = '' } = {}) {
   const segs = parts.map((p) => { const len = (p.value / total) * c; const s = `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke-width="${stroke}" class="${p.cls}" stroke-dasharray="${len} ${c - len}" stroke-dashoffset="${-off}" transform="rotate(-90 ${size / 2} ${size / 2})"/>`; off += len; return s; }).join('');
   return h('div', { class: 'donut', html: `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${segs}<text x="50%" y="54%" text-anchor="middle" class="ring-val">${esc(center)}</text></svg>` });
 }
+
+/** Meal-quality dial: 0–100 with band colour. */
+export function scoreDial(score, { size = 112 } = {}) {
+  const stroke = 11; const r = (size - stroke) / 2; const c = 2 * Math.PI * r;
+  const v = score == null ? 0 : Math.max(0, Math.min(100, score));
+  const cls = score == null ? 'na' : score >= 75 ? 'excellent' : score >= 60 ? 'good' : score >= 45 ? 'fair' : 'poor';
+  const svg = `<svg viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img" aria-label="Meal score ${score ?? 'not scored'} of 100">
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="ring-bg" stroke-width="${stroke}" fill="none"/>
+    ${v > 0 ? `<circle cx="${size / 2}" cy="${size / 2}" r="${r}" class="dial-fg dial-${cls}" stroke-width="${stroke}" fill="none" stroke-dasharray="${(c * v) / 100} ${c}" stroke-linecap="round" transform="rotate(-90 ${size / 2} ${size / 2})"/>` : ''}
+    <text x="50%" y="52%" text-anchor="middle" class="dial-val">${score ?? '—'}</text>
+    <text x="50%" y="68%" text-anchor="middle" class="ring-sub">/ 100</text></svg>`;
+  return h('div', { class: 'dial', html: svg });
+}

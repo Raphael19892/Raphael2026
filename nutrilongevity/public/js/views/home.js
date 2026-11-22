@@ -5,6 +5,7 @@ import { ring } from '../charts.js';
 import { sumItems, indicators, dayTotals } from '/shared/nutrition.js';
 import { flagsList, mealArt } from './components.js';
 import { logMeal } from './menu.js';
+import { prefill } from './analyze.js';
 
 export async function render(view) {
   const tg = state.targets;
@@ -26,6 +27,7 @@ export async function render(view) {
       h('p', { class: 'muted' }, dateLabel(today, { weekday: 'long', day: 'numeric', month: 'long' })),
       h('h1', {}, greet, name),
       h('p', { class: 'muted' }, t('homeSub'))),
+    analyzeCta(),
     flagsList((tg?.flags || []).filter((f) => f.level !== 'info')),
     h('section', { class: 'card' },
       h('div', { class: 'card-head' }, h('h2', {}, t('todayProgress')), h('a', { href: '#dashboard', class: 'link' }, t('details'))),
@@ -52,6 +54,7 @@ export async function render(view) {
               icon(done ? 'check' : 'plus', 15), ' ', done ? t('eaten') : t('markEaten'))));
       }))) : h('section', { class: 'card' }, h('p', {}, t('noPlanToday')), h('a', { class: 'btn primary', href: '#menu' }, t('createPlan'))),
     h('section', { class: 'quick' },
+      quick('#diary', 'diary', t('nav_diary'), t('quickDiarySub')),
       quick('#scan', 'scan', t('quickScan'), t('quickScanSub')),
       quick('#assistant', 'chat', t('quickAsk'), state.status.ai ? t('quickAskSub') : t('offlineAssistant')),
       quick('#optimize', 'sparkle', t('quickWeekly'), t('quickWeeklySub')),
@@ -61,4 +64,13 @@ export async function render(view) {
 
 function quick(href, ic, title, sub) {
   return h('a', { class: 'quick-card', href }, h('span', { class: 'quick-ic' }, icon(ic, 20)), h('strong', {}, title), h('small', { class: 'muted' }, sub));
+}
+
+function analyzeCta() {
+  const ta = h('textarea', { rows: 2, placeholder: t('analyzePh'), 'aria-label': t('whatDidYouEat'), maxlength: 2000 });
+  const go = () => { if (!ta.value.trim()) { location.hash = '#analyze'; return; } prefill(ta.value.trim(), true); location.hash = '#analyze'; };
+  return h('section', { class: 'cta-card' },
+    h('div', { class: 'cta-head' }, h('span', { class: 'cta-ic' }, icon('sparkle', 22)), h('div', {}, h('h2', {}, t('whatDidYouEat')), h('p', {}, t('ctaSub')))),
+    ta,
+    h('button', { class: 'btn primary block big', onclick: go }, icon('sparkle', 18), ' ', t('analyzeBtn')));
 }

@@ -6,13 +6,15 @@ import { fileURLToPath } from 'node:url';
 import { openDb, j } from './db.js';
 import * as auth from './auth.js';
 import { lookupBarcode, searchOff, searchFdc } from './products.js';
-import { chat, readLabel, aiAvailable, buildContext } from './ai.js';
+import { chat, readLabel, aiAvailable, buildContext, parseMealAI } from './ai.js';
+import { searchPubMed } from './research.js';
 import { computeTargets, CONDITIONS } from '../shared/engine.js';
 import { generatePlan } from '../shared/planner.js';
 import { analyzeWeek, dailySeries } from '../shared/analysis.js';
 import { searchFoods, ALLERGENS, FOOD_MAP } from '../shared/foods.js';
 import { analyzeIngredients, nutrientDensity, highIn } from '../shared/nova.js';
 import { sumItems } from '../shared/nutrition.js';
+import { analyzeMeal } from '../shared/mealScore.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(here, '..');
@@ -69,6 +71,16 @@ function validateItems(items) {
   });
 }
 
+function validateMeta(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  const out = {};
+  if (meta.text) out.text = String(meta.text).slice(0, 2000);
+  if (Number.isFinite(meta.score)) out.score = Math.round(meta.score);
+  if (meta.mode) out.mode = String(meta.mode).slice(0, 10);
+  if (typeof meta.photo === 'string' && /^data:image\/(jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(meta.photo) && meta.photo.length < 60000) out.photo = meta.photo;
+  return Object.keys(out).length ? out : null;
+}
+
 function validatePlan(plan) {
   if (!plan || !Array.isArray(plan.days) || plan.days.length > 14) throw new HttpError(400, 'invalid plan');
   for (const d of plan.days) {
@@ -83,7 +95,7 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
   const db = openDb(dbFile);
 
   const getProfile = (uid) => j(db.prepare('SELECT data FROM profiles WHERE user_id = ?').get(uid)?.data);
-  const getLogs = (uid, from, to) => db.prepare('SELECT id, date, slot, title, source, items FROM logs WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date, id').all(uid, from, to).map((r) => ({ ...r, items: j(r.items) }));
+  const getLogs = (uid, from, to) => db.prepare('SELECT id, date, slot, title, source, items, meta FROM logs WHERE user_id = ? AND date BETWEEN ? AND ? ORDER BY date, id').all(uid, from, to).map((r) => ({ ...r, items: j(r.items), meta: j(r.meta) }));
   const latestPlan = (uid) => { const r = db.prepare('SELECT id, start_date, data FROM plans WHERE user_id = ? ORDER BY id DESC LIMIT 1').get(uid); return r ? { id: r.id, ...j(r.data) } : null; };
   const savePlan = (uid, plan) => { const r = db.prepare('INSERT INTO plans (user_id, start_date, data) VALUES (?, ?, ?)').run(uid, plan.startDate, JSON.stringify(plan)); return Number(r.lastInsertRowid); };
   const shift = (date, days) => new Date(new Date(`${date}T00:00:00Z`).getTime() + days * 86400000).toISOString().slice(0, 10);
@@ -126,7 +138,7 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     return { ok: true };
   }, { auth: false });
 
-  route('GET', '/api/status', () => ({ ai: aiAvailable(), fdc: Boolean(process.env.FDC_API_KEY), version: '1.0.0' }), { auth: false });
+  route('GET', '/api/status', () => ({ ai: aiAvailable(), labelAi: aiAvailable(), photoAi: aiAvailable(), pubmed: true, fdc: Boolean(process.env.FDC_API_KEY), version: '1.1.0' }), { auth: false });
 
   // Profile
   route('GET', '/api/me', ({ user }) => {
@@ -171,8 +183,42 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
   route('POST', '/api/logs', ({ user, body }) => {
     const date = isDate(body.date) ? body.date : today();
     const items = validateItems(body.items);
-    const r = db.prepare('INSERT INTO logs (user_id, date, slot, title, source, items) VALUES (?, ?, ?, ?, ?, ?)').run(user.id, date, String(body.slot || 'snack').slice(0, 20), String(body.title || '').slice(0, 160), String(body.source || 'manual').slice(0, 20), JSON.stringify(items));
-    return { id: Number(r.lastInsertRowid), date, items };
+    const meta = validateMeta(body.meta);
+    const r = db.prepare('INSERT INTO logs (user_id, date, slot, title, source, items, meta) VALUES (?, ?, ?, ?, ?, ?, ?)').run(user.id, date, String(body.slot || 'snack').slice(0, 20), String(body.title || '').slice(0, 160), String(body.source || 'manual').slice(0, 20), JSON.stringify(items), meta ? JSON.stringify(meta) : null);
+    return { id: Number(r.lastInsertRowid), date, slot: body.slot || 'snack', title: body.title || '', items, meta };
+  });
+  route('PUT', '/api/logs/:id', ({ user, params, body }) => {
+    const row = db.prepare('SELECT id, date, slot, title, meta FROM logs WHERE id = ? AND user_id = ?').get(Number(params.id), user.id);
+    if (!row) throw new HttpError(404, 'Entry not found');
+    const items = body.items ? validateItems(body.items) : null;
+    const date = isDate(body.date) ? body.date : row.date;
+    const slot = body.slot ? String(body.slot).slice(0, 20) : row.slot;
+    const title = body.title != null ? String(body.title).slice(0, 160) : row.title;
+    const meta = body.meta !== undefined ? validateMeta(body.meta) : j(row.meta);
+    if (items) db.prepare('UPDATE logs SET items = ? WHERE id = ?').run(JSON.stringify(items), row.id);
+    db.prepare('UPDATE logs SET date = ?, slot = ?, title = ?, meta = ? WHERE id = ?').run(date, slot, title, meta ? JSON.stringify(meta) : null, row.id);
+    const out = db.prepare('SELECT id, date, slot, title, source, items, meta FROM logs WHERE id = ?').get(row.id);
+    return { ...out, items: j(out.items), meta: j(out.meta) };
+  });
+  route('POST', '/api/analyze/meal', async ({ body }) => {
+    const text = String(body.text || '').trim().slice(0, 2000);
+    const img = body.imageBase64 ? String(body.imageBase64) : null;
+    const mediaType = ['image/jpeg', 'image/png', 'image/webp'].includes(body.mediaType) ? body.mediaType : null;
+    if (!text && !img) throw new HttpError(400, 'Describe what you ate');
+    if (img && (!mediaType || img.length > 7_000_000)) throw new HttpError(400, 'Unsupported or too large photo');
+    if (img && !aiAvailable()) throw new HttpError(503, 'Photo analysis needs the AI service. Describe the meal in words instead.');
+    return parseMealAI({ text, imageBase64: img, mediaType, lang: body.lang === 'he' ? 'he' : 'en' });
+  });
+  route('GET', '/api/research/search', async ({ query }) => {
+    const q = String(query.q || '').trim().slice(0, 120);
+    if (q.length < 3) throw new HttpError(400, 'Enter at least 3 characters');
+    const cached = db.prepare("SELECT data FROM research_cache WHERE query = ? AND fetched_at > datetime('now', '-7 days')").get(q.toLowerCase());
+    if (cached) return { results: j(cached.data), cached: true };
+    try {
+      const results = await searchPubMed(q);
+      db.prepare("INSERT OR REPLACE INTO research_cache (query, data, fetched_at) VALUES (?, ?, datetime('now'))").run(q.toLowerCase(), JSON.stringify(results));
+      return { results };
+    } catch { throw new HttpError(502, 'PubMed is unreachable right now. Try again later.'); }
   });
   route('DELETE', '/api/logs/:id', ({ user, params }) => {
     db.prepare('DELETE FROM logs WHERE id = ? AND user_id = ?').run(Number(params.id), user.id);
@@ -288,10 +334,12 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     const d = isDate(body.date) ? body.date : today();
     const todayMeals = plan?.days.find((x) => x.date === d)?.meals || plan?.days[0]?.meals || [];
     const week = profile ? analyzeWeek(getLogs(user.id, shift(d, -6), d), targets, d) : null;
-    const contextText = buildContext({ profile, targets, todayMeals, week, lang: body.lang || profile?.lang });
+    const todayLogs = getLogs(user.id, d, d);
+    const contextText = buildContext({ profile, targets, todayMeals, week, todayLogs, lang: body.lang || profile?.lang });
+    const extra = { lastMeal: todayLogs[todayLogs.length - 1], analyze: (items) => analyzeMeal(items, profile || {}), targets };
     const history = db.prepare('SELECT role, content FROM chats WHERE user_id = ? ORDER BY id DESC LIMIT 12').all(user.id).reverse();
     let result;
-    try { result = await chat({ history, message, contextText }); } catch (e) {
+    try { result = await chat({ history, message, contextText, extra }); } catch (e) {
       console.error('AI error:', e.status || '', e.message);
       throw new HttpError(502, 'The AI service is temporarily unavailable. Please try again.');
     }

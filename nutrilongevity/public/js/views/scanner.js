@@ -11,12 +11,13 @@ let tab = 'search';
 const compare = { a: null, b: null };
 let stream = null;
 
-export async function render(view) {
+export async function render(view, opts = {}) {
+  const embedded = Boolean(opts.embedded);
   const body = h('div');
   const draw = () => {
     stopCamera();
-    fill(view, 
-      h('h1', {}, t('nav_scan')),
+    fill(view,
+      !embedded && h('h1', {}, t('nav_scan')),
       segmented([['search', t('tabSearch')], ['barcode', t('tabBarcode')], ['label', t('tabLabel')], ['compare', `${t('tabCompare')}${compare.a || compare.b ? ` (${[compare.a, compare.b].filter(Boolean).length})` : ''}`]], tab, (v) => { tab = v; draw(); }),
       body);
     fill(body);

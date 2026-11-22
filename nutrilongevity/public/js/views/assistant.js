@@ -4,7 +4,7 @@ import { api, state } from '../api.js';
 import { refChip } from './components.js';
 import { REF_MAP } from '/shared/evidence.js';
 
-const SUGGESTIONS = ['q_healthy', 'q_breakfast', 'q_fiber', 'q_glucose', 'q_upf', 'q_exercise', 'q_plants'];
+const SUGGESTIONS = ['q_ate_healthy', 'q_improve_meal', 'q_fiber_target', 'q_breakfast', 'q_fiber', 'q_glucose', 'q_upf', 'q_exercise', 'q_plants', 'q_metaanalyses'];
 
 export async function render(view) {
   const { messages, ai } = await api('/api/ai/history');

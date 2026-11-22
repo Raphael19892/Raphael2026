@@ -13,7 +13,9 @@ import { analyzeWeek, dailySeries } from '../shared/analysis.js';
 import { searchFoods, FOOD_MAP } from '../shared/foods.js';
 import { analyzeIngredients, nutrientDensity, highIn } from '../shared/nova.js';
 import { sumItems } from '../shared/nutrition.js';
-import { buildContext, fallbackAnswer, extractRefs, stripUnknownRefs, SYSTEM_PROMPT } from '../shared/assistant.js';
+import { buildContext, fallbackAnswer, extractRefs, stripUnknownRefs, SYSTEM_PROMPT, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
+import { parseMeal } from '../shared/mealParser.js';
+import { analyzeMeal } from '../shared/mealScore.js';
 
 // ── Capabilities ───────────────────────────────────────────────────────
 const use = (name) => (window.claude?.use ? window.claude.use(name).catch(() => null) : Promise.resolve(null));
@@ -156,7 +158,7 @@ async function handle(method, url, body = {}) {
   const p = u.pathname; const q = Object.fromEntries(u.searchParams);
   let m;
 
-  if (p === '/api/status') return { ai: Boolean(caps.sample), labelAi: caps.labelAi, artifact: true, barcode: false, cloud: Boolean(caps.db), downloads: Boolean(caps.downloads) };
+  if (p === '/api/status') return { ai: Boolean(caps.sample), labelAi: caps.labelAi, photoAi: caps.labelAi, pubmed: false, artifact: true, barcode: false, cloud: Boolean(caps.db), downloads: Boolean(caps.downloads) };
   if (p.startsWith('/api/auth/')) return { user: viewerUser() };
   if (p === '/api/me') { const prof = (await load('profile', { profile: null })).profile; return { user: viewerUser(), profile: prof, targets: prof ? computeTargets(prof) : null }; }
   if (p === '/api/profile' && method === 'PUT') { const profile = body.profile || body; const targets = computeTargets(profile); await save('profile', { profile }); return { profile, targets }; }
@@ -176,9 +178,42 @@ async function handle(method, url, body = {}) {
 
   if (p === '/api/logs' && method === 'GET') return { logs: await logsBetween(isDate(q.from) ? q.from : shift(today(), -30), isDate(q.to) ? q.to : today()) };
   if (p === '/api/logs' && method === 'POST') {
-    const entry = { id: await nextId(), date: isDate(body.date) ? body.date : today(), slot: String(body.slot || 'snack'), title: String(body.title || ''), source: String(body.source || 'manual'), items: sanitizeItems(body.items) };
+    const entry = { id: await nextId(), date: isDate(body.date) ? body.date : today(), slot: String(body.slot || 'snack'), title: String(body.title || ''), source: String(body.source || 'manual'), items: sanitizeItems(body.items), meta: cleanMeta(body.meta) };
     await addLog(entry); return entry;
   }
+  if ((m = p.match(/^\/api\/logs\/(\d+)$/)) && method === 'PUT') {
+    const id = Number(m[1]);
+    for (const month of (await meta()).months) {
+      const doc = await load(`logs-${month}`, { entries: [] });
+      const i = doc.entries.findIndex((l) => l.id === id);
+      if (i < 0) continue;
+      const cur = doc.entries[i];
+      const next = { ...cur, items: body.items ? sanitizeItems(body.items) : cur.items, slot: body.slot || cur.slot, title: body.title ?? cur.title, meta: body.meta !== undefined ? cleanMeta(body.meta) : cur.meta };
+      if (isDate(body.date) && body.date !== cur.date) {
+        doc.entries.splice(i, 1); await save(`logs-${month}`, doc);
+        next.date = body.date; await addLog(next);
+      } else { doc.entries[i] = next; await save(`logs-${month}`, doc); }
+      return next;
+    }
+    return fail(404, 'Entry not found');
+  }
+  if (p === '/api/analyze/meal') {
+    const text = String(body.text || '').trim().slice(0, 2000);
+    if (!text && !body.imageBase64) fail(400, 'Describe what you ate');
+    if (body.imageBase64 && !(caps.sample && caps.labelAi)) fail(503, 'Photo analysis is not available here. Describe the meal in words instead.');
+    if (!caps.sample) return parseMeal(text);
+    try {
+      const opts = { cache: false, modelTier: 'default' };
+      if (body.imageBase64) opts.images = [b64ToBlob(body.imageBase64, body.mediaType)];
+      const json = await caps.sample.json(`${mealParsePrompt(text, body.lang, Boolean(body.imageBase64))}\n\nReply with only a JSON object: {"mealName": string, "items": [{"name": string, "foodId": string|null, "grams": number, "quantity": "stated"|"estimated", "cooking": string|null, "nova": 1|2|3|4|null, "per100": null | {"kcal","protein","carbs","fat","satFat","fiber","sugars","addedSugar","sodium"} as numbers}], "questions": [string]}`, opts);
+      return normalizeAiMeal(json, text);
+    } catch (e) {
+      if (body.imageBase64 && !text) fail(503, 'The photo could not be analysed. Describe the meal in words instead.');
+      try { aiError(e); } catch { /* fall back below */ }
+      return { ...parseMeal(text), aiError: true };
+    }
+  }
+  if (p.startsWith('/api/research/search')) fail(503, 'Live PubMed search is available in the self-hosted version.');
   if ((m = p.match(/^\/api\/logs\/(\d+)$/)) && method === 'DELETE') {
     const id = Number(m[1]);
     for (const month of (await meta()).months) {
@@ -240,11 +275,13 @@ async function handle(method, url, body = {}) {
     const plan = await currentPlan(); const d = isDate(body.date) ? body.date : today();
     const todayMeals = plan?.days.find((x) => x.date === d)?.meals || plan?.days[0]?.meals || [];
     const week = prof ? analyzeWeek(await logsBetween(shift(d, -6), d), t, d) : null;
-    const contextText = buildContext({ profile: prof, targets: t, todayMeals, week, lang: body.lang || prof?.lang });
+    const todayLogs = await logsBetween(d, d);
+    const contextText = buildContext({ profile: prof, targets: t, todayMeals, week, todayLogs, lang: body.lang || prof?.lang });
+    const extra = { lastMeal: todayLogs[todayLogs.length - 1], analyze: (items) => analyzeMeal(items, prof || {}), targets: t };
     const chats = await load('chats', { messages: [] });
     let result = null;
     if (caps.sample) { try { result = await askClaude(chats.messages, message, contextText); } catch (e) { aiError(e); } }
-    if (!result) result = { ...fallbackAnswer(message, contextText), mode: 'offline' };
+    if (!result) result = { ...fallbackAnswer(message, contextText, extra), mode: 'offline' };
     chats.messages.push({ role: 'user', content: message }, { role: 'assistant', content: result.text, meta: { refs: result.refs, mode: result.mode } });
     chats.messages = chats.messages.slice(-60);
     await save('chats', chats);
@@ -257,6 +294,15 @@ async function handle(method, url, body = {}) {
     return { ok: true };
   }
   return fail(404, 'Not found');
+}
+
+function cleanMeta(meta) {
+  if (!meta || typeof meta !== 'object') return null;
+  const out = {};
+  if (meta.text) out.text = String(meta.text).slice(0, 1000);
+  if (Number.isFinite(meta.score)) out.score = Math.round(meta.score);
+  if (meta.mode) out.mode = String(meta.mode).slice(0, 10);
+  return Object.keys(out).length ? out : null; // photos are not stored here, to keep each month's diary small
 }
 
 function viewerUser() {

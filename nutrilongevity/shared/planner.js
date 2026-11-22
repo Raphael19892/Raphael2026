@@ -45,6 +45,12 @@ export function isFoodOk(foodId, profile) {
   return !exclude.has(foodId);
 }
 
+// Foods kept in the database for logging real meals but never proposed by the planner.
+const NOT_PLANNED = new Set(['water', 'sugar', 'butter', 'fries', 'chips', 'canola_oil']);
+export function planFriendly(f) {
+  return f.nova !== 4 && !NOT_PLANNED.has(f.id) && !f.tags.some((t) => ['addedsugar', 'processedmeat', 'sweetdrink', 'redmeat'].includes(t));
+}
+
 /** Alternatives for an ingredient: same substitution group, allowed for this person. */
 export function swapOptions(foodId, profile = {}) {
   const f = FOOD_MAP[foodId];
@@ -53,7 +59,7 @@ export function swapOptions(foodId, profile = {}) {
   // Broaden a few groups so every ingredient has useful alternatives.
   const related = { protein: ['legume', 'egg'], legume: ['protein'], berry: ['fruit'], fruit: ['berry'], nut: ['seed'], seed: ['nut'], ferment_dairy: ['cheese'], cheese: ['ferment_dairy'], veg: ['leafy'], leafy: ['veg'], starch: ['grain'], grain: ['starch', 'bread'], bread: ['grain'], spread: ['nut'] };
   const extra = FOODS.filter((x) => x.id !== foodId && (related[f.swap] || []).includes(x.swap));
-  return [...groupMates, ...extra].filter((x) => isFoodOk(x.id, profile)).map((x) => x.id);
+  return [...groupMates, ...extra].filter((x) => planFriendly(x) && isFoodOk(x.id, profile)).map((x) => x.id);
 }
 
 /** Replace disallowed ingredients with allowed ones from the same group; null if the meal no longer works. */

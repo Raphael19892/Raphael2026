@@ -1,5 +1,5 @@
 // App shell, routing, theme and language handling.
-import { h, fill, icon, loading, toast } from './ui.js';
+import { h, fill, icon, loading, toast, sheet } from './ui.js';
 import { t, lang, setLang } from './i18n.js';
 import { api, state, loadMe, loadPlan } from './api.js';
 
@@ -11,10 +11,13 @@ const VIEWS = {
   research: () => import('./views/research.js'),
   assistant: () => import('./views/assistant.js'),
   profile: () => import('./views/profile.js'),
+  analyze: () => import('./views/analyze.js'),
+  diary: () => import('./views/diary.js'),
   onboarding: () => import('./views/onboarding.js'),
   auth: () => import('./views/auth.js'),
 };
-const NAV = [['home', 'home'], ['menu', 'menu'], ['scan', 'scan'], ['dashboard', 'chart'], ['research', 'book'], ['assistant', 'chat'], ['profile', 'user']];
+const NAV = [['home', 'home'], ['menu', 'menu'], ['analyze', 'sparkle'], ['diary', 'diary'], ['dashboard', 'chart']];
+const MORE = [['assistant', 'chat'], ['research', 'book'], ['scan', 'scan'], ['profile', 'user']];
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -44,8 +47,15 @@ function header() {
 }
 
 function nav(active) {
+  const moreActive = MORE.some(([id]) => id === active);
   return h('nav', { class: 'bottom-nav', 'aria-label': t('mainNav') },
-    NAV.map(([id, ic]) => h('a', { href: `#${id}`, class: active === id ? 'active' : '', 'aria-current': active === id ? 'page' : null }, icon(ic, 21), h('span', {}, t(`nav_${id}`)))));
+    NAV.map(([id, ic]) => h('a', { href: `#${id}`, class: `${active === id ? 'active' : ''} ${id === 'analyze' ? 'nav-cta' : ''}`, 'aria-current': active === id ? 'page' : null }, h('span', { class: 'nav-ic' }, icon(ic, id === 'analyze' ? 24 : 21)), h('span', {}, t(`nav_${id}`)))),
+    h('button', { class: moreActive ? 'active' : '', 'aria-label': t('nav_more'), onclick: openMore }, h('span', { class: 'nav-ic' }, icon('grid', 21)), h('span', {}, t('nav_more'))));
+}
+
+function openMore() {
+  const s = sheet(t('nav_more'), h('div', { class: 'more-grid' }, MORE.map(([id, ic]) => h('a', { href: `#${id}`, class: 'more-item', onclick: () => s.close() },
+    h('span', { class: 'quick-ic' }, icon(ic, 22)), h('strong', {}, t(`nav_${id}`)), h('small', { class: 'muted' }, t(`navsub_${id}`))))));
 }
 
 let renderToken = 0;

@@ -1,7 +1,8 @@
 // AI integration (Claude via the official Anthropic SDK) with a transparent rule-based fallback
 // that works without an API key. The model may only cite references from the curated library.
 import Anthropic from '@anthropic-ai/sdk';
-import { buildContext, extractRefs, stripUnknownRefs, fallbackAnswer, SYSTEM_PROMPT as SYSTEM } from '../shared/assistant.js';
+import { buildContext, extractRefs, stripUnknownRefs, fallbackAnswer, SYSTEM_PROMPT as SYSTEM, MEAL_SCHEMA, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
+import { parseMeal } from '../shared/mealParser.js';
 
 export { buildContext };
 
@@ -19,8 +20,8 @@ function getClient() {
 
 
 
-export async function chat({ history, message, contextText }) {
-  if (!aiAvailable()) return { ...fallbackAnswer(message, contextText), mode: 'offline' };
+export async function chat({ history, message, contextText, extra }) {
+  if (!aiAvailable()) return { ...fallbackAnswer(message, contextText, extra), mode: 'offline' };
   const messages = [
     ...history.map((h) => ({ role: h.role, content: h.content })),
     { role: 'user', content: `<user_context>\n${contextText}\n</user_context>\n\n${message}` },
@@ -81,3 +82,25 @@ export async function readLabel(imageBase64, mediaType) {
   return JSON.parse(text);
 }
 
+
+
+/** Understand a free-text (and optionally photographed) meal. Falls back to the rule-based parser. */
+export async function parseMealAI({ text, imageBase64, mediaType, lang }) {
+  if (!aiAvailable()) return parseMeal(text);
+  const content = [];
+  if (imageBase64) content.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: imageBase64 } });
+  content.push({ type: 'text', text: mealParsePrompt(text, lang, Boolean(imageBase64)) });
+  try {
+    const resp = await getClient().beta.messages.create({
+      model: MODEL, max_tokens: 16000, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+      output_config: { effort: 'low', format: { type: 'json_schema', schema: MEAL_SCHEMA } },
+      messages: [{ role: 'user', content }],
+    });
+    if (resp.stop_reason === 'refusal') return parseMeal(text);
+    const json = JSON.parse(resp.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
+    return normalizeAiMeal(json, text);
+  } catch (e) {
+    console.error('meal parse AI error:', e.status || '', e.message);
+    return { ...parseMeal(text), aiError: true };
+  }
+}

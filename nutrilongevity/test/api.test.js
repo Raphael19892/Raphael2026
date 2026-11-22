@@ -89,6 +89,24 @@ test('favourites, ingredient analysis and offline assistant with real citations'
   assert.equal((await req('POST', '/api/scan/label', { imageBase64: 'abc', mediaType: 'image/png' })).status, 503);
 });
 
+test('analyzer endpoint, diary edits and meta', async () => {
+  const a = await req('POST', '/api/analyze/meal', { text: 'two slices of whole wheat bread with avocado and eggs', lang: 'en' });
+  assert.equal(a.status, 200);
+  assert.equal(a.data.mode, 'rules');
+  assert.ok(a.data.items.some((i) => i.foodId === 'ww_bread'));
+  const log = await req('POST', '/api/logs', { date: '2026-03-05', slot: 'breakfast', title: 'Toast', source: 'analyzer', items: a.data.items, meta: { text: 'toast', score: 78, mode: 'rules', photo: 'javascript:alert(1)' } });
+  assert.equal(log.data.meta.score, 78);
+  assert.equal(log.data.meta.photo, undefined, 'unsafe photo data rejected');
+  const upd = await req('PUT', `/api/logs/${log.data.id}`, { items: [{ foodId: 'ww_bread', grams: 32 }], slot: 'snack', meta: { score: 70 } });
+  assert.equal(upd.data.slot, 'snack');
+  assert.equal(upd.data.items[0].grams, 32);
+  const day = await req('GET', '/api/logs?from=2026-03-05&to=2026-03-05');
+  assert.equal(day.data.logs[0].meta.score, 70);
+  assert.equal((await req('PUT', '/api/logs/99999', { slot: 'lunch' })).status, 404);
+  assert.equal((await req('POST', '/api/analyze/meal', { text: '' })).status, 400);
+  assert.equal((await req('GET', '/api/research/search?q=ab')).status, 400);
+});
+
 test('static serving blocks traversal and serves shared modules', async () => {
   assert.equal((await fetch(`${base}/shared/engine.js`)).status, 200);
   const r = await new Promise((resolve) => http.get({ host: '127.0.0.1', port: server.address().port, path: '/shared/../server/auth.js' }, resolve));

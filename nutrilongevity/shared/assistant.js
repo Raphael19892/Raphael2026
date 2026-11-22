@@ -28,7 +28,7 @@ function foodTable(ids) {
   }).join('\n');
 }
 
-export function buildContext({ profile, targets, todayMeals, week, lang }) {
+export function buildContext({ profile, targets, todayMeals, week, lang, todayLogs = [] }) {
   const lines = [];
   lines.push(`Language: ${lang === 'he' ? 'Hebrew' : 'English'}`);
   if (profile) lines.push(`Profile: age ${profile.age}, sex ${profile.sex}, ${profile.heightCm} cm, ${profile.weightKg} kg, activity ${profile.activity}, goal ${profile.goal}, diet ${profile.diet}, allergies ${(profile.allergies || []).join(', ') || 'none'}, conditions ${(profile.conditions || []).join(', ') || 'none'}, medications: ${profile.medications || 'none stated'}, strength sessions/week ${profile.strengthTraining || 0}.`);
@@ -40,6 +40,14 @@ export function buildContext({ profile, targets, todayMeals, week, lang }) {
       const t = sumItems(m.items);
       m.items.forEach((i) => i.foodId && ids.add(i.foodId));
       lines.push(`- ${m.slot}: ${m.name?.en || m.title} — ${m.items.map((i) => `${i.foodId || i.product?.name?.en} ${i.grams} g`).join(', ')} | ${Math.round(t.kcal)} kcal, P ${Math.round(t.protein)} g, fibre ${Math.round(t.fiber)} g, sodium ${Math.round(t.sodium)} mg`);
+    }
+  }
+  if (todayLogs.length) {
+    lines.push("Meals logged today (food diary, most recent last):");
+    for (const l of todayLogs) {
+      const t = sumItems(l.items);
+      lines.push(`- ${l.slot}: ${l.title || ''} — ${l.items.map((i) => `${i.foodId || i.product?.name?.en} ${i.grams} g`).join(', ')} | ${Math.round(t.kcal)} kcal, P ${Math.round(t.protein)} g, fibre ${Math.round(t.fiber)} g, added sugar ${Math.round(t.addedSugar)} g, sodium ${Math.round(t.sodium)} mg${l.meta?.score != null ? `, meal quality score ${l.meta.score}/100 (app's descriptive index)` : ''}`);
+      l.items.forEach((i) => i.foodId && ids.add(i.foodId));
     }
   }
   if (week && week.nDays) {
@@ -67,13 +75,34 @@ function topBy(key, n = 8, filter = () => true) {
   return FOODS.filter(filter).filter((f) => f.per100.kcal > 0).sort((a, b) => b.per100[key] - a.per100[key]).slice(0, n);
 }
 
-export function fallbackAnswer(message, contextText = '') {
+export function fallbackAnswer(message, contextText = '', extra = {}) {
   const q = String(message || '').toLowerCase();
   const he = /[֐-׿]/.test(q);
   const L = (en, h) => (he ? h : en);
   const has = (...w) => w.some((x) => q.includes(x));
   let text; let refs = [];
 
+  const last = extra.lastMeal;
+  if (last && extra.analyze && has('i ate', 'what i ate', 'my meal', 'this meal', 'improve', 'target', 'אכלתי', 'הארוחה', 'לשפר', 'יעד')) {
+    const a = extra.analyze(last.items);
+    const tg = extra.targets;
+    const pct = (v, tv) => (tv ? Math.round((v / tv) * 100) : null);
+    const lines = he
+      ? [`הארוחה האחרונה ביומן: ${last.title || ''} — ציון איכות ${a.score ?? '—'}/100 (מדד תיאורי, לא מדד רפואי).`,
+        a.evaluation.good.length ? `מה טוב: ${a.evaluation.good.map((g) => g.he).join(' ')}` : '',
+        a.evaluation.bad.length ? `פחות מיטיב: ${a.evaluation.bad.map((g) => g.he).join(' ')}` : '',
+        a.evaluation.missing.length ? `חסר: ${a.evaluation.missing.map((g) => g.he).join(' ')}` : '',
+        a.suggestions.length ? `שיפור: ${a.suggestions.slice(0, 2).map((x) => `${x.he} (${x.before}→${x.after})`).join(' ')}` : '',
+        tg ? `תרומה ליעד היומי: ${pct(a.totals.fiber, tg.fiber)}% מהסיבים, ${pct(a.totals.protein, tg.protein)}% מהחלבון.` : '']
+      : [`Your last logged meal: ${last.title || ''} — meal quality score ${a.score ?? '—'}/100 (a descriptive index, not a medical measure).`,
+        a.evaluation.good.length ? `Good: ${a.evaluation.good.map((g) => g.en).join(' ')}` : '',
+        a.evaluation.bad.length ? `Less beneficial: ${a.evaluation.bad.map((g) => g.en).join(' ')}` : '',
+        a.evaluation.missing.length ? `Missing: ${a.evaluation.missing.map((g) => g.en).join(' ')}` : '',
+        a.suggestions.length ? `To improve: ${a.suggestions.slice(0, 2).map((x) => `${x.en} (score ${x.before}→${x.after})`).join(' ')}` : '',
+        tg ? `Contribution to your daily targets: ${pct(a.totals.fiber, tg.fiber)}% of fibre, ${pct(a.totals.protein, tg.protein)}% of protein, ${pct(a.totals.kcal, tg.kcal)}% of energy.` : ''];
+    const refs = [...new Set([...a.evaluation.good, ...a.evaluation.bad, ...a.evaluation.missing].flatMap((x) => x.refs))].slice(0, 6);
+    return { text: lines.filter(Boolean).join('\n') + (refs.length ? '\n' + refs.map((r) => `[ref:${r}]`).join(' ') : ''), refs };
+  }
   if (has('fiber', 'fibre', 'סיב')) {
     const list = topBy('fiber', 10, (f) => f.per100.kcal < 450 || ['chia', 'flax'].includes(f.id))
       .map((f) => `• ${f.name[he ? 'he' : 'en']}: ${f.per100.fiber} g/100 g${f.unit ? ` (~${(f.per100.fiber * f.unit[1] / 100).toFixed(1)} g per ${f.unit[0]})` : ''}`).join('\n');
@@ -108,3 +137,73 @@ export function fallbackAnswer(message, contextText = '') {
   return { text, refs };
 }
 
+
+// ── AI meal parsing (shared by the Node server and the claude.ai page) ────
+import { FOODS as ALL_FOODS } from './foods.js';
+import { parseMeal } from './mealParser.js';
+
+const VOCAB = ALL_FOODS.map((f) => `${f.id}: ${f.name.en} / ${f.name.he}${f.unit ? ` (1 ${f.unit[0]} ≈ ${f.unit[1]} g)` : ''}`).join('\n');
+
+export const MEAL_SCHEMA = {
+  type: 'object', additionalProperties: false, required: ['items', 'questions', 'mealName'],
+  properties: {
+    mealName: { type: 'string' },
+    items: {
+      type: 'array',
+      items: {
+        type: 'object', additionalProperties: false,
+        required: ['name', 'foodId', 'grams', 'quantity', 'cooking', 'per100', 'nova'],
+        properties: {
+          name: { type: 'string' },
+          foodId: { type: ['string', 'null'] },
+          grams: { type: 'number' },
+          quantity: { type: 'string', enum: ['stated', 'estimated'] },
+          cooking: { type: ['string', 'null'] },
+          nova: { type: ['integer', 'null'] },
+          per100: {
+            type: ['object', 'null'], additionalProperties: false,
+            required: ['kcal', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sugars', 'addedSugar', 'sodium'],
+            properties: Object.fromEntries(['kcal', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sugars', 'addedSugar', 'sodium'].map((k) => [k, { type: 'number' }])),
+          },
+        },
+      },
+    },
+    questions: { type: 'array', items: { type: 'string' } },
+  },
+};
+
+export function mealParsePrompt(text, lang, hasImage) {
+  return `You convert a person's description${hasImage ? ' and photo' : ''} of what they ate into structured food items for a nutrition app.
+
+Food database (id: English / Hebrew, typical unit):
+${VOCAB}
+
+Rules:
+- Split the meal into its foods. Map each to the database id of the SAME food (e.g. "whole wheat toast" → ww_bread, "omelette" → eggs plus oil). Break home-made or composite dishes into their likely ingredients from the database when that is reasonable (e.g. a home-made protein pancake → oats, eggs, whey, banana; shakshuka → eggs, tomato, onion, red_pepper, evoo).
+- For a food that is not in the database and cannot be broken down (e.g. a branded product, schnitzel, falafel), set foodId to null and give your best per-100 g estimate in per100 plus its NOVA group; otherwise set per100 and nova to null.
+- grams: use the stated amount; otherwise estimate a typical adult portion and set quantity "estimated". Weights are as eaten (cooked grains and legumes are cooked weight). Add cooking oil when something was fried or sautéed and no fat is mentioned (typically 5 g per item).
+- cooking: fried, baked, grilled, boiled, raw or null.
+- questions: at most 2 short questions, only where an unclear amount would change the result a lot (e.g. "How many slices of pizza?"). Write them in ${lang === 'he' ? 'Hebrew' : 'English'}.
+- mealName: a short name for the meal in ${lang === 'he' ? 'Hebrew' : 'English'}.
+- Never invent nutrition values for foods that have a database id.
+
+Meal description: """${String(text || '').slice(0, 2000)}"""`;
+}
+
+/** Convert the AI's JSON into app items; anything unusable falls back to the rule-based parser. */
+export function normalizeAiMeal(json, text) {
+  const items = [];
+  for (const it of json?.items || []) {
+    const grams = Math.max(1, Math.min(3000, Math.round(Number(it.grams) || 0)));
+    if (!grams) continue;
+    if (it.foodId && FOOD_MAP[it.foodId]) { items.push({ foodId: it.foodId, grams, label: it.name, quantity: it.quantity === 'stated' ? 'stated' : 'assumed', cooking: it.cooking || null }); continue; }
+    const p = it.per100;
+    if (!p || !Number.isFinite(Number(p.kcal))) continue;
+    const per100 = {};
+    for (const k of ['kcal', 'protein', 'carbs', 'fat', 'satFat', 'fiber', 'sugars', 'addedSugar', 'sodium']) per100[k] = Math.max(0, Number(p[k]) || 0);
+    items.push({ grams, label: it.name, quantity: it.quantity === 'stated' ? 'stated' : 'assumed', cooking: it.cooking || null,
+      product: { id: `ai:${String(it.name).slice(0, 40)}`, name: { en: it.name, he: it.name }, per100, nova: [1, 2, 3, 4].includes(it.nova) ? it.nova : null, status: 'ai-estimate', emoji: '🍽️', tags: [] } });
+  }
+  if (!items.length) return parseMeal(text);
+  return { items, questions: (json.questions || []).slice(0, 3).map((q) => ({ text: String(q) })), unrecognized: [], mealName: json.mealName || '', mode: 'ai' };
+}
