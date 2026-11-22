@@ -161,13 +161,29 @@ export async function compressImage(file, max = 1600, quality = 0.85) {
   } finally { URL.revokeObjectURL(url); }
 }
 
-/** A hidden file input for images WITHOUT `capture`, so phones offer both the camera and the gallery. */
-export function imagePicker(onPick) {
-  const input = h('input', { type: 'file', accept: 'image/*', hidden: true });
+/**
+ * A photo button whose tap lands directly on a real <input type=file> stretched over it (invisible).
+ * Programmatic input.click() is blocked in many in-app browsers and embedded views, so we never use it.
+ * No `capture`, so phones offer both the gallery and the camera.
+ * `enabled` false → the button explains why instead of opening the picker.
+ */
+export function photoButton(label, onPick, { enabled = true, iconName = 'camera', cls = 'btn', disabledMsg } = {}) {
+  if (!enabled) return h('button', { class: cls, type: 'button', onclick: () => toast(disabledMsg || t('photoNoAi'), 'err') }, icon(iconName, 16), ' ', label);
+  const input = h('input', { type: 'file', accept: 'image/*', class: 'file-overlay', 'aria-label': label });
   input.addEventListener('change', async () => {
     const f = input.files[0]; input.value = '';
     if (!f) return;
     try { await onPick(await compressImage(f), f); } catch { toast(t('photoFailed'), 'err'); }
   });
-  return input;
+  return h('label', { class: `${cls} file-btn` }, icon(iconName, 16), ' ', label, input);
+}
+
+/** Let people paste a screenshot (Ctrl+V / long-press → Paste) anywhere inside `el`. */
+export function acceptPastedImage(el, onPick) {
+  el.addEventListener('paste', async (e) => {
+    const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith('image/'));
+    if (!item) return;
+    e.preventDefault();
+    try { await onPick(await compressImage(item.getAsFile())); toast(t('imagePasted')); } catch { toast(t('photoFailed'), 'err'); }
+  });
 }

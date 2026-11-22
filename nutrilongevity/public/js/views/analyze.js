@@ -1,6 +1,6 @@
 // Analyze Food — describe (or photograph) what you ate; get nutrition, a transparent quality score,
 // an evidence-based evaluation and concrete improvements. Every analysis is saved to the diary.
-import { h, fill, add, icon, fmt, toast, todayIso, novaBadge, pill, loading, segmented, imagePicker } from '../ui.js';
+import { h, fill, add, icon, fmt, toast, todayIso, novaBadge, pill, loading, segmented, photoButton, acceptPastedImage } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { api, state } from '../api.js';
 import { FOOD_MAP, searchFoods, STATUS_LABEL } from '/shared/foods.js';
@@ -43,12 +43,11 @@ function describeTab(body) {
   const ta = h('textarea', { id: 'meal-text', rows: 3, maxlength: 2000, placeholder: t('analyzePh'), 'aria-label': t('analyzePh'), oninput: (e) => { d.text = e.target.value; } });
   ta.value = d.text || '';
   const thumb = h('div', { class: 'photo-prev', hidden: true });
-  const fileIn = imagePicker((img) => {
+  const setPhoto = (img) => {
     photo = img;
     fill(thumb, h('img', { src: photo.thumb, alt: '' }), h('button', { class: 'icon-btn sm', 'aria-label': t('remove'), onclick: () => { photo = null; thumb.hidden = true; } }, icon('close', 14)));
     thumb.hidden = false;
-    if (!state.status.photoAi) toast(t('photoNoAi'), 'err');
-  });
+  };
   const slotSel = h('select', { 'aria-label': t('mealSlot'), onchange: (e) => { d.slot = e.target.value; } }, ['breakfast', 'lunch', 'dinner', 'snack'].map((s) => h('option', { value: s, selected: s === d.slot }, t(`slot_${s}`))));
   const go = h('button', { class: 'btn primary big', onclick: () => run() }, icon('sparkle', 18), ' ', t('analyzeBtn'));
   const result = h('div', { class: 'analysis' });
@@ -81,12 +80,14 @@ function describeTab(body) {
       h('label', { class: 'field', for: 'meal-text' }, h('span', {}, t('whatDidYouEat'))),
       ta,
       h('div', { class: 'chips examples' }, EXAMPLES[lang()].map((ex) => h('button', { class: 'chip', type: 'button', onclick: () => { ta.value = ex; d.text = ex; } }, ex))),
-      thumb, fileIn,
+      thumb,
       h('div', { class: 'analyze-row' },
-        h('button', { class: 'btn', type: 'button', onclick: () => fileIn.click() }, icon('camera', 17), ' ', t('addPhoto')),
+        photoButton(t('addPhoto'), setPhoto, { enabled: Boolean(state.status.photoAi) }),
         slotSel, go),
-      h('p', { class: 'hint' }, state.status.ai ? t('analyzeAiNote') : t('analyzeRulesNote'))),
+      h('p', { class: 'hint' }, state.status.ai ? t('analyzeAiNote') : t('analyzeRulesNote')),
+      state.status.photoAi && h('p', { class: 'hint' }, t('pasteImageHint'))),
     result);
+  if (state.status.photoAi) acceptPastedImage(body, setPhoto);
   if (session.entry) renderResult(result);
   if (session.autorun && d.text) { session.autorun = false; run(); }
 }

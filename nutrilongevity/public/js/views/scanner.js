@@ -1,4 +1,4 @@
-import { h, fill, add, icon, fmt, sheet, toast, todayIso, novaBadge, pill, loading, segmented, imagePicker } from '../ui.js';
+import { h, fill, add, icon, fmt, sheet, toast, todayIso, novaBadge, pill, loading, segmented, photoButton } from '../ui.js';
 import { t, lang } from '../i18n.js';
 import { api, state } from '../api.js';
 import { FOOD_MAP, searchFoods, STATUS_LABEL, NUTRIENT_META } from '/shared/foods.js';
@@ -174,14 +174,14 @@ function barcodeTab(body) {
 // ── Label upload / manual entry ─────────────────────────────────────────
 function labelTab(body) {
   const status = h('div');
-  const file = imagePicker(async (img) => {
+  const readPhoto = async (img) => {
     fill(status, loading(t('readingLabel')));
     try {
       const { product } = await api('/api/scan/label', { method: 'POST', body: { imageBase64: img.b64, mediaType: img.type } });
       fill(status, h('p', { class: 'hint' }, product.notes || ''));
       productSheet(product);
     } catch (e) { fill(status, h('p', { class: 'form-error' }, e.message)); }
-  });
+  };
 
   // Manual entry
   const m = { name: '', ingredients: '', per100: {} };
@@ -205,9 +205,9 @@ function labelTab(body) {
     h('div', { class: 'card scan-card' },
       h('div', { class: 'scan-illu' }, icon('upload', 42)),
       h('p', {}, t('labelIntro')),
-      h('button', { class: 'btn primary block', onclick: () => ((state.status.labelAi ?? state.status.ai) ? file.click() : toast(t('photoNoAi'), 'err')) }, icon('camera', 17), ' ', t('uploadLabel')),
+      photoButton(t('uploadLabel'), readPhoto, { enabled: Boolean(state.status.labelAi ?? state.status.ai), cls: 'btn primary block' }),
       !(state.status.labelAi ?? state.status.ai) && h('p', { class: 'hint' }, t('labelNeedsAi')),
-      file, status),
+      status),
     manual);
 }
 

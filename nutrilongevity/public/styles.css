@@ -538,3 +538,7 @@ details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 blockquote { margin: 6px 0; padding: 8px 12px; border-inline-start: 3px solid var(--line); background: var(--surface-2); border-radius: 8px; font-size: .84rem; white-space: pre-wrap; }
 .fallback-box { margin-top: 10px; padding: 12px; border-radius: 14px; background: var(--surface-2); display: grid; gap: 8px; }
 .fallback-box .steps { margin: 0; padding-inline-start: 20px; display: grid; gap: 6px; font-size: .9rem; }
+/* Photo buttons: the real file input covers the button so the tap reaches it directly */
+.file-btn { position: relative; overflow: hidden; cursor: pointer; }
+.file-btn .file-overlay { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 100px; }
+.file-btn:focus-within { outline: 2.5px solid var(--primary); outline-offset: 2px; }
