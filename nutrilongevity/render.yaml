@@ -1,0 +1,18 @@
+# One-click setup for Render (https://render.com): New → Blueprint → choose this repository.
+# The persistent disk keeps accounts and food diaries between deploys (disks need a paid instance type).
+services:
+  - type: web
+    name: nutrilongevity
+    runtime: docker
+    rootDir: nutrilongevity
+    plan: starter
+    healthCheckPath: /api/status
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: FDC_API_KEY
+        sync: false
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1

@@ -101,7 +101,7 @@ async function boot() {
   } catch (e) { if (e.status !== 401) toast(t('networkError'), 'err'); }
   window.addEventListener('hashchange', render);
   render();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+  if ('serviceWorker' in navigator && !state.status.artifact) navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
 boot();
