@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>לימוד הלכות שבת, סעיף אחר סעיף</title>
+<style>
+  :root { --bg:#faf7f0; --card:#fff; --ink:#222; --muted:#666; --accent:#1f4e79; --ok:#2e7d32; --bad:#c62828; --line:#e3ddcd; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, "Segoe UI", Arial, sans-serif; background:var(--bg); color:var(--ink); line-height:1.6; font-size:18px; }
+  header { background:var(--accent); color:#fff; padding:14px 16px; }
+  header h1 { margin:0; font-size:20px; }
+  main { max-width:720px; margin:0 auto; padding:14px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; margin:12px 0; }
+  .src { font-family: "Frank Ruhl Libre", "David", serif; font-size:20px; }
+  .label { color:var(--muted); font-size:14px; margin-bottom:4px; }
+  button { font:inherit; background:var(--accent); color:#fff; border:0; border-radius:10px; padding:10px 14px; margin:4px 0; cursor:pointer; }
+  button.ghost { background:#fff; color:var(--accent); border:1px solid var(--accent); }
+  .opt { display:block; width:100%; text-align:right; background:#fff; color:var(--ink); border:1px solid var(--line); }
+  .opt.right { border-color:var(--ok); background:#e8f5e9; }
+  .opt.wrong { border-color:var(--bad); background:#ffebee; }
+  .why { color:var(--muted); font-size:16px; margin-top:6px; }
+  .terms span { display:inline-block; background:#eef3f8; border-radius:8px; padding:2px 8px; margin:2px; font-size:15px; }
+  .done { color:var(--ok); font-weight:bold; }
+  footer { text-align:center; color:var(--muted); padding:16px; font-size:15px; border-top:1px solid var(--line); margin-top:20px; }
+  .msg { color:var(--muted); }
+</style>
+</head>
+<body>
+<header><h1>לימוד הלכות שבת לפי השולחן ערוך</h1></header>
+<main id="app"><p class="msg">טוען...</p></main>
+<footer>כלי לימוד בלבד, לא פוסק הלכה.<br><strong>לשאלה מעשית, שאל רב</strong></footer>
+
+<script>
+const app = document.getElementById('app');
+const CONTENT = '../content/';
+let simanim = [];   // loaded approved simanim
+
+function store(key, val) { try { if (val === undefined) return JSON.parse(localStorage.getItem(key)); localStorage.setItem(key, JSON.stringify(val)); } catch (e) { return null; } }
+const el = (tag, attrs = {}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === 'class') n.className = v; else if (k.startsWith('on')) n[k] = v; else n.setAttribute(k, v); }
+  for (const k of kids.flat()) n.append(k instanceof Node ? k : document.createTextNode(k ?? ''));
+  return n;
+};
+
+function listFromProgress(p) {
+  if (Array.isArray(p)) return p.map(x => typeof x === 'object' ? x.siman : x);
+  for (const key of ['approved', 'simanim', 'approved_simanim']) if (Array.isArray(p?.[key])) return p[key].map(x => typeof x === 'object' ? x.siman : x);
+  return [];
+}
+
+async function load() {
+  try {
+    const pr = await fetch('../progress.json');
+    if (!pr.ok) throw new Error('no progress');
+    const nums = listFromProgress(await pr.json()).filter(n => Number.isFinite(+n));
+    for (const n of nums) {
+      const r = await fetch(`${CONTENT}siman-${n}.json`);
+      if (!r.ok) continue;
+      const d = await r.json();
+      if (d.approved_by_user === true) simanim.push(d);
+    }
+    simanim.sort((a, b) => a.siman - b.siman);
+  } catch (e) { simanim = []; }
+  home();
+}
+
+function home() {
+  app.replaceChildren();
+  if (!simanim.length) {
+    app.append(el('div', { class: 'card' },
+      el('p', {}, 'עדיין אין סימנים מאושרים.'),
+      el('p', { class: 'msg' }, 'כדי להוסיף סימן: ב-Claude Code כתוב "הכן את סימן N", ואחרי שבדקת את ההסברים אשר את ההעתקה לתיקיית content.'),
+      el('p', { class: 'msg' }, 'אם הקבצים כבר שם ואתה פותח את הדף מהמכשיר ישירות, בחר קובץ סימן:'),
+      el('input', { type: 'file', accept: '.json', onchange: onFile })));
+    return;
+  }
+  const prog = store('shabbat-done') || {};
+  app.append(el('h2', {}, 'בחר סימן'));
+  for (const s of simanim) {
+    app.append(el('div', { class: 'card' },
+      el('div', {}, `סימן ${s.siman}${s.title ? ': ' + s.title : ''}`),
+      prog[s.siman] != null ? el('div', { class: 'done' }, `שאלות החזרה: ${prog[s.siman]} נכונות`) : '',
+      el('button', { onclick: () => siman(s) }, 'ללמוד')));
+  }
+}
+
+function onFile(e) {
+  const f = e.target.files[0]; if (!f) return;
+  f.text().then(t => { try { const d = JSON.parse(t); if (d.approved_by_user === true) { simanim.push(d); home(); } else alert('הקובץ לא מסומן כמאושר.'); } catch (x) { alert('קובץ לא תקין.'); } });
+}
+
+function siman(s) {
+  app.replaceChildren(el('button', { class: 'ghost', onclick: home }, 'חזרה לרשימה'));
+  app.append(el('h2', {}, `סימן ${s.siman}${s.title ? ': ' + s.title : ''}`));
+  if (s.url) app.append(el('p', {}, el('a', { href: s.url, target: '_blank', rel: 'noopener' }, 'הנוסח המלא במקור')));
+  for (const q of s.seifim || []) {
+    app.append(el('div', { class: 'card' },
+      el('div', { class: 'label' }, `סעיף ${q.seif}`),
+      el('div', { class: 'src' }, q.text),
+      el('div', { class: 'label', style: 'margin-top:10px' }, 'הסבר פשוט'),
+      el('div', {}, q.explanation),
+      (q.key_terms || []).length ? el('div', { class: 'terms' }, q.key_terms.map(t => el('span', {}, typeof t === 'string' ? t : (t.term || '')))) : ''));
+  }
+  const quiz = Array.isArray(s.quiz) ? s.quiz : (s.quiz?.questions || []);
+  if (quiz.length) app.append(el('button', { onclick: () => runQuiz(s, quiz) }, `שאלות חזרה (${quiz.length})`));
+}
+
+function runQuiz(s, quiz) {
+  let i = 0, score = 0;
+  const step = () => {
+    app.replaceChildren(el('button', { class: 'ghost', onclick: () => siman(s) }, 'חזרה לסימן'));
+    if (i >= quiz.length) {
+      const prog = store('shabbat-done') || {}; prog[s.siman] = `${score} מתוך ${quiz.length}`; store('shabbat-done', prog);
+      app.append(el('div', { class: 'card' }, el('h2', {}, `סיימת: ${score} מתוך ${quiz.length}`),
+        el('button', { onclick: home }, 'לרשימת הסימנים')));
+      return;
+    }
+    const q = quiz[i];
+    const card = el('div', { class: 'card' }, el('div', { class: 'label' }, `שאלה ${i + 1} מתוך ${quiz.length}, סעיף ${q.seif}`), el('div', {}, q.question));
+    const opts = q.options.map((o, idx) => el('button', { class: 'opt', onclick: () => {
+      opts.forEach((b, j) => { b.disabled = true; if (j === q.answer_index) b.classList.add('right'); });
+      if (idx === q.answer_index) score++; else opts[idx].classList.add('wrong');
+      card.append(el('div', { class: 'why' }, q.why || ''), el('button', { onclick: () => { i++; step(); } }, i + 1 < quiz.length ? 'הבאה' : 'סיום'));
+    } }, o));
+    card.append(...opts);
+    app.append(card);
+  };
+  step();
+}
+
+load();
+</script>
+</body>
+</html>
