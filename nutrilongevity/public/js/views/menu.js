@@ -1,5 +1,5 @@
 import { h, fill, add, icon, fmt, sheet, toast, todayIso, dateLabel, novaBadge, loading, emptyState } from '../ui.js';
-import { t, lang } from '../i18n.js';
+import { t, lang, unitLabel } from '../i18n.js';
 import { api, state, loadPlan, savePlanDebounced } from '../api.js';
 import { FOOD_MAP } from '/shared/foods.js';
 import { sumItems, dayTotals, provenance } from '/shared/nutrition.js';
@@ -64,7 +64,8 @@ function draw(view, logs) {
     h('section', { class: 'plan-actions' },
       h('button', { class: 'btn', onclick: () => shopSheet() }, icon('cart', 17), ' ', t('shoppingList')),
       h('button', { class: 'btn', onclick: () => favoritesSheet(day, persist) }, icon('heart', 17), ' ', t('favorites')),
-      h('button', { class: 'btn', onclick: () => newPlan(view) }, icon('refresh', 17), ' ', t('newWeek'))),
+      h('button', { class: 'btn', onclick: () => newPlan(view) }, icon('refresh', 17), ' ', t('newWeek')),
+      h('a', { class: 'btn', href: '#weekmenu' }, icon('cart', 17), ' ', t('nav_weekmenu'))),
     h('p', { class: 'hint center' }, t('planBasis')));
 }
 
@@ -152,7 +153,7 @@ function shopSheet() {
     h('h4', {}, t(`group_${g}`)),
     h('ul', {}, items.sort((a, b) => b.grams - a.grams).map((e) => {
       const f = FOOD_MAP[e.foodId];
-      const label = `${f.name[lang()]} — ${e.dry ? `${fmt(e.purchaseGrams)} g ${t('dryWeight')}` : `${fmt(e.grams)} g`}${e.units && !e.dry ? ` (~${e.units} ${e.unitName})` : ''}`;
+      const label = `${f.name[lang()]} — ${e.dry ? `${fmt(e.purchaseGrams)} g ${t('dryWeight')}` : `${fmt(e.grams)} g`}${e.units && !e.dry ? ` (~${e.units} ${unitLabel(e.unitName)})` : ''}`;
       lines.push(`☐ ${label}`);
       return h('li', {}, h('label', {}, h('input', { type: 'checkbox', onchange: (ev) => (ev.target.checked ? checked.add(e.foodId) : checked.delete(e.foodId)) }), ` ${f.emoji} ${label}`));
     })))),

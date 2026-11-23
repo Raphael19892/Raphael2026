@@ -65,6 +65,17 @@ The coordinator **stops if fewer than 3 studies are approved**. It ends with a c
 
 Claude plays the roles when it is available; otherwise rule-based versions run. Reports are saved per user.
 
+## Weekly menu builder
+
+Screen: **More → Weekly menu builder** (also a card on Home and a button on "My menu"). Built from the weekly-menu-builder skill, in `shared/menuBuilder.js`, and runs fully offline:
+
+- **Fixed rules, editable and saved on the profile (`menuRules`):** Mediterranean/DASH; 30–45 g fibre/day; every day includes legumes, whole grains, vegetables, fruit, a handful of nuts and olive oil. It never includes fish, seafood, leafy greens, processed meat, white bread or processed breakfast cereals. Also kosher (no meat and dairy in one meal), simple preparation (≤25 min, assembled from shop-bought products), and favourite foods are preferred.
+- **Optional special requests** in free text (Shabbat, an event day, "without broccoli", "more tahini"). Read by the AI when a key is set, otherwise by rules (Hebrew and English). The menu is built without asking questions.
+- **Output:** 7 days × 4 meals with one alternative per meal, a daily fibre estimate calculated from the food database, the weekly plant count, and a shopping list by department.
+- **QA before showing:** no forbidden food, fibre in range every day, required groups every day, every shopping item used, and kosher. A failed check is shown, never hidden.
+- **"Use as my weekly plan"** imports it as the current plan (`POST /api/plan/import`), so the diary and dashboard use it.
+- Quantities and fibre are estimates. The menu is a suggestion, not medical or dietetic advice.
+
 ## Product & Link Intelligence
 
 Paste up to four product links (manufacturer pages, supermarkets, online grocers, label images or PDF specifications) from the **Product link** card on Home. You can also upload a label photo or paste the label text.

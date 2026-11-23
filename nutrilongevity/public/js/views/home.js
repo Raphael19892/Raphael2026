@@ -56,6 +56,7 @@ export async function render(view) {
               icon(done ? 'check' : 'plus', 15), ' ', done ? t('eaten') : t('markEaten'))));
       }))) : h('section', { class: 'card' }, h('p', {}, t('noPlanToday')), h('a', { class: 'btn primary', href: '#menu' }, t('createPlan'))),
     h('section', { class: 'quick' },
+      quick('#weekmenu', 'cart', t('nav_weekmenu'), t('navsub_weekmenu')),
       quick('#diary', 'diary', t('nav_diary'), t('quickDiarySub')),
       quick('#scan', 'scan', t('quickScan'), t('quickScanSub')),
       quick('#assistant', 'chat', t('quickAsk'), state.status.ai ? t('quickAskSub') : t('offlineAssistant')),

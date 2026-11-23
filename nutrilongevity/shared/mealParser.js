@@ -114,6 +114,11 @@ function findMatches(text) {
   return out.sort((a, b) => a.start - b.start);
 }
 
+/** Food ids mentioned in a text (Hebrew/English aliases), in order of appearance. */
+export function findFoods(input) {
+  return [...new Set(findMatches(norm(input)).map((m) => m.id))];
+}
+
 /**
  * Parse a free-text meal description.
  * Returns { items: [{foodId, grams, label, quantity: 'stated'|'assumed', cooking}], questions: [...], unrecognized: [...] }

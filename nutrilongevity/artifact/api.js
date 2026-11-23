@@ -16,6 +16,7 @@ import { sumItems } from '../shared/nutrition.js';
 import { buildContext, fallbackAnswer, extractRefs, stripUnknownRefs, SYSTEM_PROMPT, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
 import { parseMeal } from '../shared/mealParser.js';
 import { assessNova } from '../shared/novaAssess.js';
+import { requestsPrompt, parseRequestsRules } from '../shared/menuBuilder.js';
 import { searcherPrompt, verifierPrompt, writerPrompt, localCandidates, rulePick, ruleVerify, ruleWrite, exclusionsOf } from '../shared/researchAgent.js';
 import { productPrompt, buildRecord, heuristicExtract } from '../shared/productExtract.js';
 import { analyzeMeal } from '../shared/mealScore.js';
@@ -181,6 +182,17 @@ async function handle(method, url, body = {}) {
     const plan = { ...body.plan, id: cur.id }; await setPlan(plan); return { plan };
   }
 
+  if (p === '/api/plan/import') {
+    const plan = { ...body.plan, id: await nextId(), startDate: body.plan.days[0].date, createdAt: new Date().toISOString() };
+    for (const d of plan.days) for (const meal of d.meals) meal.items = sanitizeItems(meal.items);
+    await setPlan(plan); return { plan };
+  }
+  if (p === '/api/menu/requests') {
+    const text = String(body.text || '').trim().slice(0, 1000);
+    if (!text) return { shabbat: false, skip: [], add: [], remove: [], notes: '', mode: 'none' };
+    if (caps.sample) { try { return { ...(await caps.sample.json(requestsPrompt(text, body.lang), { cache: false, modelTier: 'quick' })), mode: 'ai' }; } catch (e) { try { aiError(e); } catch { /* fall back */ } } }
+    return { ...parseRequestsRules(text), mode: 'rules' };
+  }
   if (p === '/api/logs' && method === 'GET') return { logs: await logsBetween(isDate(q.from) ? q.from : shift(today(), -30), isDate(q.to) ? q.to : today()) };
   if (p === '/api/logs' && method === 'POST') {
     const entry = { id: await nextId(), date: isDate(body.date) ? body.date : today(), slot: String(body.slot || 'snack'), title: String(body.title || ''), source: String(body.source || 'manual'), items: sanitizeItems(body.items), meta: cleanMeta(body.meta) };

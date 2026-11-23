@@ -8,6 +8,8 @@ import * as auth from './auth.js';
 import { lookupBarcode, searchOff, searchFdc } from './products.js';
 import { chat, readLabel, aiAvailable, buildContext, parseMealAI } from './ai.js';
 import { searchPubMed } from './research.js';
+import { EXCLUDE_GROUPS, DAILY_CHECK, requestsPrompt, parseRequestsRules } from '../shared/menuBuilder.js';
+import { aiJson } from './ai.js';
 import { serverSteps } from './researchAgent.js';
 import { safeFetch, FetchError } from './productFetch.js';
 import { extractProductAI } from './ai.js';
@@ -54,10 +56,24 @@ export function validateProfile(p) {
     mealsPerDay: [3, 4, 5, 6].includes(Number(p.mealsPerDay)) ? Number(p.mealsPerDay) : 4,
     frameworks: (Array.isArray(p.frameworks) ? p.frameworks : ['med', 'greenmed']).filter((f) => ['med', 'greenmed', 'dash', 'plantforward', 'polyphenols', 'fermented'].includes(f)),
     lang: p.lang === 'he' ? 'he' : 'en',
+    menuRules: validateMenuRules(p.menuRules),
   };
   // Age < 18 is rejected by num(); the safety screen also covers it for direct engine use.
   if (e.length) throw new HttpError(400, `Invalid profile fields: ${e.join(', ')}`);
   return out;
+}
+
+function validateMenuRules(r) {
+  if (!r || typeof r !== 'object') return undefined;
+  const groups = Object.keys(EXCLUDE_GROUPS);
+  const fiberMin = Math.max(10, Math.min(80, Number(r.fiberMin) || 30));
+  return {
+    fiberMin, fiberMax: Math.max(fiberMin + 5, Math.min(100, Number(r.fiberMax) || 45)),
+    exclude: (Array.isArray(r.exclude) ? r.exclude : []).filter((g) => groups.includes(g)),
+    daily: (Array.isArray(r.daily) ? r.daily : []).filter((k) => Object.keys(DAILY_CHECK).includes(k)),
+    kosher: r.kosher !== false, simplePrep: r.simplePrep !== false,
+    favorites: (Array.isArray(r.favorites) ? r.favorites : []).map(String).slice(0, 20),
+  };
 }
 
 function validateItems(items) {
@@ -169,6 +185,19 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     plan.kind = body.kind || 'standard';
     const id = savePlan(user.id, plan);
     return { plan: { id, ...plan } };
+  });
+  route('POST', '/api/plan/import', ({ user, body }) => {
+    const plan = validatePlan(body.plan);
+    plan.kind = String(body.plan.kind || 'imported').slice(0, 20);
+    plan.startDate = plan.days[0].date; plan.createdAt = new Date().toISOString();
+    const id = savePlan(user.id, plan);
+    return { plan: { id, ...plan } };
+  });
+  route('POST', '/api/menu/requests', async ({ body }) => {
+    const text = String(body.text || '').trim().slice(0, 1000);
+    if (!text) return { shabbat: false, skip: [], add: [], remove: [], notes: '', mode: 'none' };
+    if (aiAvailable()) { try { return { ...(await aiJson(requestsPrompt(text, body.lang), { effort: 'low' })), mode: 'ai' }; } catch { /* fall back */ } }
+    return { ...parseRequestsRules(text), mode: 'rules' };
   });
   route('PUT', '/api/plan/:id', ({ user, params, body }) => {
     const row = db.prepare('SELECT id FROM plans WHERE id = ? AND user_id = ?').get(Number(params.id), user.id);

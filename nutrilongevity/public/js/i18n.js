@@ -136,6 +136,30 @@ const D = {
   agentReadyForVerifier: ['Ready for checking by the verifier.', 'מוכן לבדיקה על ידי הבודק.'], agentHistory: ['Previous research', 'מחקרים קודמים'],
   agentHumanControl: ['The summary is reading material only. The agent does not change your menu or recommend supplements, and it is not medical advice — the decision is yours.', 'הסיכום הוא חומר לקריאה בלבד. הסוכן אינו משנה את התפריט ואינו ממליץ על תוספים, וזה אינו ייעוץ רפואי — ההחלטה אצלך.'],
 
+  // Weekly menu builder (v1.4)
+  nav_weekmenu: ['Weekly menu builder', 'בונה תפריט שבועי'], navsub_weekmenu: ['7 days × 4 meals + shopping list, by your rules', '7 ימים × 4 ארוחות + רשימת קניות, לפי הכללים שלך'],
+  menuIntro: ['Builds a weekly menu and shopping list by your fixed rules: Mediterranean/DASH, rich in fibre, simple to prepare, without the foods you exclude. Fibre is calculated from the food database.', 'בונה תפריט שבועי ורשימת קניות לפי הכללים הקבועים שלך: ים-תיכוני/DASH, עשיר בסיבים, הכנה פשוטה, בלי המזונות שאתה לא אוכל. הסיבים מחושבים ממאגר המזון.'],
+  menuRequests: ['Special requests for this week (optional)', 'בקשות מיוחדות לשבוע הזה (אופציונלי)'], menuReqHint: ['e.g. Shabbat, an event on Tuesday evening, add tahini, without broccoli. Leave empty for a regular week.', 'למשל: שבת, אירוע ביום שלישי בערב, להוסיף טחינה, בלי ברוקולי. אפשר להשאיר ריק לשבוע רגיל.'],
+  menuReqPh: ['Shabbat, event on Tuesday evening, without broccoli…', 'שבת, אירוע ביום שלישי בערב, בלי ברוקולי…'], menuStart: ['Week starts on', 'השבוע מתחיל ב-'],
+  menuBuild: ['Build weekly menu', 'בניית תפריט שבועי'], menuBuilding: ['Building the menu and running the checks…', 'בונה את התפריט ומריץ בדיקות…'],
+  menuRules: ['My fixed rules', 'הכללים הקבועים שלי'], menuExclude: ['Never include', 'לעולם לא לכלול'], menuDaily: ['Every day must include', 'בכל יום חייב להופיע'],
+  fiberMinL: ['Fibre min (g/day)', 'מינימום סיבים (ג׳/יום)'], fiberMaxL: ['Fibre max (g/day)', 'מקסימום סיבים (ג׳/יום)'], menuFavorites: ['Favourite foods', 'מזונות אהובים'],
+  menuKosher: ['Kosher: no meat and dairy in the same meal', 'כשרות: בלי בשר וחלב באותה ארוחה'], menuSimple: ['Simple preparation (assembly, ≤25 min)', 'הכנה פשוטה (הרכבה, עד 25 דק׳)'], saveRules: ['Save rules', 'שמירת הכללים'],
+  mex_fish: ['Fish', 'דגים'], mex_seafood: ['Seafood', 'פירות ים'], mex_leafy: ['Leafy greens', 'עלים ירוקים'], mex_processedmeat: ['Processed meat', 'בשר מעובד'], mex_whitebread: ['White bread', 'לחם לבן'], mex_cereals: ['Processed cereals', 'דגני בוקר מעובדים'],
+  mex_redmeat: ['Red meat', 'בשר אדום'], mex_poultry: ['Poultry', 'עוף'], mex_eggs: ['Eggs', 'ביצים'], mex_dairy: ['Dairy', 'מוצרי חלב'],
+  mdaily_legume: ['Legumes', 'קטניות'], mdaily_wholegrain: ['Whole grains', 'דגנים מלאים'], mdaily_vegetable: ['Vegetables', 'ירקות'], mdaily_fruit: ['Fruit', 'פרי'], mdaily_nuts: ['Handful of nuts', 'חופן אגוזים'], mdaily_oliveoil: ['Olive oil', 'שמן זית'],
+  mfav_overnight_oats: ['Overnight oats', 'אוברנייט אוטס'], mfav_yogurt_bowl: ['Yogurt bowls', 'קערות יוגורט'], mfav_eggs: ['Eggs (shakshuka/omelette)', 'ביצים (שקשוקה/חביתה)'], mfav_lentils: ['Lentils', 'עדשים'], mfav_hummus: ['Hummus', 'חומוס'],
+  mfav_avocado: ['Avocado', 'אבוקדו'], mfav_sweet_potato: ['Sweet potato', 'בטטה'], mfav_broccoli: ['Broccoli', 'ברוקולי'], mfav_rye_sourdough: ['Rye / wholemeal sourdough', 'שיפון / מחמצת מלאה'], mfav_oat_pancake: ['Oat pancakes', 'פנקייק שיבולת שועל'],
+  menuQa: ['Quality checks', 'בדיקות איכות'], qa_noForbidden: ['No meal contains an excluded food', 'אף ארוחה לא כוללת מזון אסור'], qa_fiberRange: ['Fibre within the target range every day', 'הסיבים בטווח היעד בכל יום'],
+  qa_dailyFoods: ['Every day has all the required food groups', 'בכל יום יש את כל קבוצות המזון הנדרשות'], qa_shoppingUsed: ['Every shopping item is used in at least one meal', 'כל מוצר ברשימת הקניות מופיע בלפחות ארוחה אחת'], qa_kosher: ['No meat and dairy in the same meal', 'אין בשר וחלב באותה ארוחה'],
+  menuRequestsApplied: ['Requests applied', 'בקשות שהוחלו'], reqShabbat: ['Shabbat meal on Friday evening, no-cook Shabbat lunch', 'ארוחת שבת בליל שישי, ארוחת צהריים בשבת ללא בישול'], reqSkip: ['no meal planned on', 'ללא ארוחה מתוכננת ביום'], reqAdd: ['more of', 'יותר'], reqRemove: ['without', 'בלי'],
+  avgFiber: ['avg fibre/day', 'ממוצע סיבים ליום'], plantsWeekly: ['different plants this week', 'צמחים שונים השבוע'], fiberTarget: ['fibre target (g)', 'יעד סיבים (ג׳)'],
+  menuEstimateNote: ['Quantities and fibre are estimates from the food database, scaled to your energy target.', 'הכמויות והסיבים הם אומדן לפי מאגר המזון, מותאמים ליעד האנרגיה שלך.'],
+  dayWord: ['', 'יום'], alternative: ['Alternative', 'חלופה'], dayMissing: ['Missing today', 'חסר היום'],
+  dept_produce: ['Fruit & vegetables', 'ירקות ופירות'], dept_legumes: ['Legumes & tofu', 'קטניות וטופו'], dept_grains: ['Bread & grains', 'לחם ודגנים'], dept_dairy: ['Dairy & eggs', 'חלב וביצים'], dept_protein: ['Chicken & meat', 'עוף ובשר'], dept_nuts: ['Nuts & seeds', 'אגוזים וזרעים'], dept_pantry: ['Oils, spreads & pantry', 'שמנים, ממרחים ומזווה'],
+  menuUseAsPlan: ['Use as my weekly plan', 'קביעה כתפריט השבועי שלי'], menuImported: ['Set as your weekly plan', 'נקבע כתפריט השבועי שלך'], menuAnother: ['Build another version', 'גרסה אחרת'],
+  menuDisclaimer: ['The menu is a suggestion only, not medical or dietetic advice. Quantities and fibre are estimates.', 'התפריט הוא הצעה בלבד ואינו ייעוץ רפואי או דיאטטי. הכמויות והסיבים הם אומדן.'],
+
   // Auth
   signIn: ['Sign in', 'התחברות'], createAccount: ['Create account', 'יצירת חשבון'], name: ['First name', 'שם פרטי'], email: ['Email', 'אימייל'], password: ['Password', 'סיסמה'],
   passwordHint: ['At least 8 characters.', 'לפחות 8 תווים.'], signOut: ['Sign out', 'התנתקות'],
@@ -314,3 +338,10 @@ const D = {
   q_healthy: ['Is today’s lunch healthy?', 'האם ארוחת הצהריים של היום בריאה?'], q_breakfast: ['How can I improve my breakfast?', 'איך לשפר את ארוחת הבוקר שלי?'], q_fiber: ['Which foods provide more fibre?', 'אילו מזונות מספקים יותר סיבים?'],
   q_glucose: ['How does this meal affect blood glucose?', 'איך הארוחה הזו משפיעה על הסוכר בדם?'], q_upf: ['Is this product ultra-processed: oats, sugar, palm oil, emulsifier (soy lecithin), flavouring', 'האם המוצר אולטרה-מעובד: oats, sugar, palm oil, emulsifier (soy lecithin), flavouring'], q_exercise: ['What should I eat after exercise?', 'מה לאכול אחרי אימון?'], q_plants: ['How can I improve my weekly plant diversity?', 'איך לשפר את מגוון הצמחים השבועי?'],
 };
+
+const UNIT_HE = { cup: 'כוס', slice: 'פרוסות', medium: 'יח׳ בינוניות', 'block 1/4': 'רבע חבילה', tbsp: 'כפות', clove: 'שיני', spear: 'גבעולים', half: 'חצאים',
+  olive: 'זיתים', fruit: 'יח׳', date: 'תמרים', prune: 'שזיפים', fig: 'תאנים', handful: 'חופנים', fillet: 'פילה', can: 'קופסאות', breast: 'חזה', egg: 'ביצים',
+  square: 'קוביות', tsp: 'כפיות', pita: 'פיתות', bun: 'לחמניות', croissant: 'קרואסונים', cob: 'קלחים', 'medium serving': 'מנות', bag: 'שקיות', patty: 'קציצות',
+  sausage: 'נקניקיות', scoop: 'כפות מדידה', cookie: 'עוגיות', glass: 'כוסות', wedge: 'פלחים' };
+/** Localised household unit name (food database units are stored in English). */
+export function unitLabel(name) { return lang() === 'he' ? (UNIT_HE[name] || name) : name; }

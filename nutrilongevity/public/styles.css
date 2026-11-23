@@ -576,3 +576,15 @@ blockquote { margin: 6px 0; padding: 8px 12px; border-inline-start: 3px solid va
 @media (max-width: 420px) { .agent-steps { grid-template-columns: 1fr; } }
 .agent-table { min-width: 640px; }
 .agent-table td:first-child { min-width: 170px; } .agent-table td:last-child { min-width: 160px; }
+
+/* ── v1.4: weekly menu builder ──────────────────────────────────────────── */
+.qa-list { list-style: none; padding: 0; margin: 6px 0; display: grid; gap: 4px; font-size: .9rem; }
+.qa-list li.ok { color: var(--good); } .qa-list li.bad { color: var(--bad); }
+.menu-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 10px 0 4px; }
+.day-menu h3 { margin: 0; }
+.menu-meals { list-style: none; padding: 0; margin: 6px 0 0; display: grid; gap: 10px; }
+.menu-meals li { display: grid; grid-template-columns: 46px 1fr; gap: 10px; align-items: start; }
+.menu-meals li > div { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.menu-meals li.skipped { display: flex; flex-direction: column; padding: 8px; border-radius: 12px; background: var(--surface-2); }
+.ing-line { overflow-wrap: anywhere; }
+.alt-line { color: var(--primary); }
