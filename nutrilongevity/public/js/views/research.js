@@ -14,6 +14,7 @@ export async function render(view) {
   const body = h('div');
   const draw = () => {
     fill(view, h('h1', {}, t('nav_research')), h('p', { class: 'muted' }, t('researchIntro')),
+      h('a', { class: 'agent-banner', href: '#agent' }, icon('flask', 18), h('div', {}, h('strong', {}, t('nav_agent')), h('small', {}, t('navsub_agent')))),
       segmented([['frameworks', t('frameworks')], ['library', t('library')], ...(state.status.pubmed ? [['latest', t('latestResearch')]] : []), ['method', t('howToRead')]], tab, (v) => { tab = v; draw(); }), body);
     fill(body, ...({ frameworks, library, method, latest }[tab] || frameworks)(draw));
   };

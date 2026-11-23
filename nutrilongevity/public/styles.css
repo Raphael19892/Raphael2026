@@ -547,3 +547,32 @@ blockquote { margin: 6px 0; padding: 8px 12px; border-inline-start: 3px solid va
 .nova.typical.nova-1 { color: var(--nova1); } .nova.typical.nova-2 { color: var(--nova2); } .nova.typical.nova-3 { color: color-mix(in srgb, var(--nova3) 80%, var(--text)); } .nova.typical.nova-4 { color: var(--nova4); }
 .nova.nova-x { background: var(--surface-3); color: var(--muted); }
 .fit-unknown { background: var(--surface-2); } .fit-unknown span { color: var(--muted); font-weight: 700; }
+
+/* ── v1.3: research agent ───────────────────────────────────────────────── */
+.agent-steps { list-style: none; padding: 0; margin: 12px 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.agent-steps li { display: flex; gap: 8px; align-items: flex-start; padding: 10px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); }
+.agent-steps li div { display: flex; flex-direction: column; min-width: 0; }
+.agent-steps small { font-size: .72rem; }
+.step-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: .8rem; background: var(--surface-3); color: var(--muted); }
+.st-running { border-color: var(--primary); } .st-running .step-dot { background: var(--primary-soft); color: var(--primary); animation: blink 1.2s infinite; }
+.st-done .step-dot { background: var(--good); color: #fff; }
+.st-failed .step-dot, .st-stopped .step-dot { background: var(--bad); color: #fff; }
+.step-state { font-weight: 700; color: var(--muted); }
+.agent-summary h2 { margin: 0; font-size: 1.1rem; }
+.summary-lines { padding-inline-start: 20px; display: grid; gap: 6px; font-size: .95rem; }
+.menu-suggestion { margin: 12px 0; padding: 12px; border-radius: 12px; background: color-mix(in srgb, var(--good) 10%, var(--surface)); border: 1px solid color-mix(in srgb, var(--good) 30%, var(--line)); }
+.menu-suggestion p { margin: 4px 0; }
+.sources { padding-inline-start: 20px; font-size: .84rem; display: grid; gap: 4px; }
+.count-line { font-weight: 700; font-size: .9rem; padding: 0 4px; }
+.agent-table td, .agent-table th { text-align: start !important; font-size: .8rem; vertical-align: top; }
+.pill.verdict-approved, .pill.conf-high { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+.pill.verdict-needs_correction, .pill.conf-medium { background: color-mix(in srgb, var(--accent) 18%, transparent); color: color-mix(in srgb, var(--accent) 75%, var(--text)); }
+.pill.verdict-rejected, .pill.conf-low { background: color-mix(in srgb, var(--bad) 14%, transparent); color: var(--bad); }
+.searcher-list { padding-inline-start: 18px; display: grid; gap: 10px; }
+.searcher-list a { overflow-wrap: anywhere; }
+.linklike { background: none; border: 0; padding: 0; color: var(--primary); cursor: pointer; font: inherit; text-align: start; }
+.agent-banner { display: flex; gap: 10px; align-items: center; padding: 12px 14px; margin: 10px 0; border-radius: 14px; text-decoration: none; color: var(--text); background: var(--primary-soft); border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--line)); }
+.agent-banner div { display: flex; flex-direction: column; }
+@media (max-width: 420px) { .agent-steps { grid-template-columns: 1fr; } }
+.agent-table { min-width: 640px; }
+.agent-table td:first-child { min-width: 170px; } .agent-table td:last-child { min-width: 160px; }

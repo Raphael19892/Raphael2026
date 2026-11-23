@@ -50,6 +50,21 @@ Describe what you ate in Hebrew or English, for example "I ate two slices of piz
 
 The Research library also has a live **PubMed** search for recent meta-analyses, RCTs and guidelines (self-hosted version). Those results are marked "not yet appraised".
 
+## Nutrition research agent
+
+The research agent is the user's own pipeline (`shared/researchAgent.js`). A coordinator runs three roles:
+
+1. **Searcher.** Finds 5–8 recent studies from professional sources, including both sides of a controversy, and never invents anything.
+2. **Verifier.** Opens every link and checks the study type, the sample, whether the claim matches the source, and causation versus association. It notes contradictions without choosing a side and gives each study a verdict: approved, needs correction or rejected. It also gives an overall confidence level.
+3. **Writer.** Writes 6–8 lines from approved studies only, each with a citation. It adds one menu suggestion that respects the exclusions in your profile, followed by the sources.
+
+The coordinator **stops if fewer than 3 studies are approved**. It ends with a count line (found / approved / rejected) and always says when links were not opened. The output is reading material only: the agent never changes the menu.
+
+- **Server version:** the searcher uses PubMed, and the verifier re-opens each PubMed record and checks the claim against the actual abstract.
+- **claude.ai page:** there is no internet access, so the agent searches the curated library and reports that the links were not opened live.
+
+Claude plays the roles when it is available; otherwise rule-based versions run. Reports are saved per user.
+
 ## Product & Link Intelligence
 
 Paste up to four product links (manufacturer pages, supermarkets, online grocers, label images or PDF specifications) from the **Product link** card on Home. You can also upload a label photo or paste the label text.

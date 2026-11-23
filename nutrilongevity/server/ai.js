@@ -117,3 +117,16 @@ export async function extractProductAI(parts) {
   if (resp.stop_reason === 'refusal') throw Object.assign(new Error('refused'), { status: 422 });
   return JSON.parse(resp.content.filter((b) => b.type === 'text').map((b) => b.text).join(''));
 }
+
+/** Ask Claude for JSON (used by the research agent roles). Throws when AI is not configured. */
+export async function aiJson(prompt, { effort = 'medium' } = {}) {
+  if (!aiAvailable()) throw Object.assign(new Error('AI not configured'), { status: 503 });
+  const resp = await getClient().beta.messages.create({
+    model: MODEL, max_tokens: 16000, betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default',
+    output_config: { effort }, messages: [{ role: 'user', content: prompt }],
+  });
+  if (resp.stop_reason === 'refusal') throw Object.assign(new Error('refused'), { status: 422 });
+  const text = resp.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+  const m = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1)];
+  return JSON.parse(m[1]);
+}

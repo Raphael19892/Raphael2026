@@ -13,12 +13,13 @@ const VIEWS = {
   profile: () => import('./views/profile.js'),
   analyze: () => import('./views/analyze.js'),
   product: () => import('./views/product.js'),
+  agent: () => import('./views/agent.js'),
   diary: () => import('./views/diary.js'),
   onboarding: () => import('./views/onboarding.js'),
   auth: () => import('./views/auth.js'),
 };
 const NAV = [['home', 'home'], ['menu', 'menu'], ['analyze', 'sparkle'], ['diary', 'diary'], ['dashboard', 'chart']];
-const MORE = [['product', 'link'], ['assistant', 'chat'], ['research', 'book'], ['scan', 'scan'], ['profile', 'user']];
+const MORE = [['agent', 'flask'], ['product', 'link'], ['assistant', 'chat'], ['research', 'book'], ['scan', 'scan'], ['profile', 'user']];
 
 const store = {
   get(k) { try { return localStorage.getItem(k); } catch { return null; } },

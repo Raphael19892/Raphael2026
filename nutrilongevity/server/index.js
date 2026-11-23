@@ -8,6 +8,7 @@ import * as auth from './auth.js';
 import { lookupBarcode, searchOff, searchFdc } from './products.js';
 import { chat, readLabel, aiAvailable, buildContext, parseMealAI } from './ai.js';
 import { searchPubMed } from './research.js';
+import { serverSteps } from './researchAgent.js';
 import { safeFetch, FetchError } from './productFetch.js';
 import { extractProductAI } from './ai.js';
 import { parseHtml, focusText, heuristicExtract, productPrompt, buildRecord } from '../shared/productExtract.js';
@@ -274,6 +275,29 @@ export function createApp({ dbFile = process.env.NL_DB || path.join(ROOT, 'data'
     }
     return { ok: true, record: rec, access: { ok: true, ...rec.source } };
   });
+
+  // Research agent (searcher → verifier → writer); the client runs the coordinator and calls each role.
+  route('POST', '/api/agent/search', async ({ user, body }) => {
+    const topic = String(body.topic || '').trim().slice(0, 300);
+    if (topic.length < 2) throw new HttpError(400, 'Enter a nutrition topic');
+    return serverSteps(getProfile(user.id) || {}, body.lang === 'en' ? 'en' : 'he').search(topic);
+  });
+  route('POST', '/api/agent/verify', async ({ user, body }) => {
+    if (!Array.isArray(body.studies) || !body.studies.length || body.studies.length > 10) throw new HttpError(400, 'studies required');
+    return serverSteps(getProfile(user.id) || {}, body.lang === 'en' ? 'en' : 'he').verify(String(body.topic || ''), body.studies);
+  });
+  route('POST', '/api/agent/write', async ({ user, body }) => {
+    if (!Array.isArray(body.approved) || body.approved.length < 3) throw new HttpError(400, 'at least 3 approved studies required');
+    return serverSteps(getProfile(user.id) || {}, body.lang === 'en' ? 'en' : 'he').write(String(body.topic || ''), body.approved, body.verifier || {});
+  });
+  route('GET', '/api/agent/reports', ({ user }) => ({ reports: db.prepare('SELECT id, data, created_at FROM agent_reports WHERE user_id = ? ORDER BY id DESC LIMIT 30').all(user.id).map((r) => ({ id: r.id, ...j(r.data) })) }));
+  route('POST', '/api/agent/reports', ({ user, body }) => {
+    const data = JSON.stringify(body.report || {});
+    if (data.length > 200000) throw new HttpError(413, 'Report too large');
+    const r = db.prepare('INSERT INTO agent_reports (user_id, data) VALUES (?, ?)').run(user.id, data);
+    return { id: Number(r.lastInsertRowid) };
+  });
+  route('DELETE', '/api/agent/reports/:id', ({ user, params }) => { db.prepare('DELETE FROM agent_reports WHERE id = ? AND user_id = ?').run(Number(params.id), user.id); return { ok: true }; });
 
   route('GET', '/api/research/search', async ({ query }) => {
     const q = String(query.q || '').trim().slice(0, 120);

@@ -16,6 +16,7 @@ import { sumItems } from '../shared/nutrition.js';
 import { buildContext, fallbackAnswer, extractRefs, stripUnknownRefs, SYSTEM_PROMPT, mealParsePrompt, normalizeAiMeal } from '../shared/assistant.js';
 import { parseMeal } from '../shared/mealParser.js';
 import { assessNova } from '../shared/novaAssess.js';
+import { searcherPrompt, verifierPrompt, writerPrompt, localCandidates, rulePick, ruleVerify, ruleWrite, exclusionsOf } from '../shared/researchAgent.js';
 import { productPrompt, buildRecord, heuristicExtract } from '../shared/productExtract.js';
 import { analyzeMeal } from '../shared/mealScore.js';
 
@@ -234,6 +235,36 @@ async function handle(method, url, body = {}) {
     }
     return { ok: true, record: buildRecord(heuristicExtract({ text: /רכיבים|ingredients/i.test(text) ? text : `Ingredients: ${text}` }), source, 'heuristic'), access: { ok: true, ...source } };
   }
+  // Research agent on this page: no web access, so the curated library is the search corpus and every
+  // link is reported as not opened live. Claude (sample) plays the three roles when available.
+  if (p.startsWith('/api/agent/')) {
+    const prof = (await load('profile', { profile: null })).profile || {};
+    const L = body.lang === 'en' ? 'en' : 'he';
+    const ask = async (prompt) => { if (!caps.sample) return null; try { return await caps.sample.json(prompt, { cache: false, modelTier: 'default' }); } catch (e) { try { aiError(e); } catch { /* fall back */ } return null; } };
+    if (p === '/api/agent/search') {
+      const topic = String(body.topic || '').trim().slice(0, 300);
+      if (topic.length < 2) fail(400, 'Enter a nutrition topic');
+      const candidates = localCandidates(topic);
+      const r = candidates.length ? await ask(searcherPrompt(topic, candidates, L)) : null;
+      const picked = r?.picked || rulePick(candidates);
+      const byId = Object.fromEntries(candidates.map((c) => [String(c.id), c]));
+      const studies = picked.filter((x) => byId[String(x.id)]).slice(0, 8).map((x) => { const { curated, ...c } = byId[String(x.id)]; return { ...c, ...x, id: String(x.id) }; });
+      return { studies, mode: 'library', note: [L === 'he' ? 'בגרסה זו אין גישה לאינטרנט: החיפוש נעשה בספריית המחקרים המאוצרת של האפליקציה.' : 'No internet access in this version: searched the app’s curated study library.', r?.note].filter(Boolean).join(' · '), ai: Boolean(r) };
+    }
+    if (p === '/api/agent/verify') {
+      const withText = (body.studies || []).map((x) => ({ ...x, linkOpened: false, sourceText: x.findings || '', linkNote: L === 'he' ? 'רשומה מהספרייה המאוצרת; הקישור לא נפתח בזמן אמת' : 'curated library record; link not opened live' }));
+      const v = (await ask(verifierPrompt(String(body.topic || ''), withText, L))) || ruleVerify(withText, L);
+      if (v.confidence === 'high') v.confidence = 'medium'; // links were not opened live
+      return { ...v, rows: v.rows.map((r) => ({ ...r, linkOpened: false })), mode: caps.sample ? 'ai' : 'rules' };
+    }
+    if (p === '/api/agent/write') {
+      const w = await ask(writerPrompt(String(body.topic || ''), body.approved || [], body.verifier || {}, exclusionsOf(prof, L), L));
+      return w ? { ...w, automatic: false } : ruleWrite(String(body.topic || ''), body.approved || [], body.verifier || {}, prof, L);
+    }
+    if (p === '/api/agent/reports' && method === 'GET') return { reports: [...(await load('agent-reports', { items: [] })).items].reverse() };
+    if (p === '/api/agent/reports' && method === 'POST') { const doc = await load('agent-reports', { items: [] }); const id = await nextId(); doc.items.push({ id, ...body.report }); doc.items = doc.items.slice(-12); await save('agent-reports', doc); return { id }; }
+    if ((m = p.match(/^\/api\/agent\/reports\/(\d+)$/))) { const doc = await load('agent-reports', { items: [] }); doc.items = doc.items.filter((x) => x.id !== Number(m[1])); await save('agent-reports', doc); return { ok: true }; }
+  }
   if (p.startsWith('/api/research/search')) fail(503, 'Live PubMed search is available in the self-hosted version.');
   if ((m = p.match(/^\/api\/logs\/(\d+)$/)) && method === 'DELETE') {
     const id = Number(m[1]);
@@ -311,7 +342,7 @@ async function handle(method, url, body = {}) {
 
   if (p === '/api/account' && method === 'DELETE') {
     const months = (await meta()).months;
-    await Promise.all([...['profile', 'plan', 'favorites', 'reports', 'chats', 'saved', 'meta'], ...months.map((x) => `logs-${x}`)].map(remove));
+    await Promise.all([...['profile', 'plan', 'favorites', 'reports', 'chats', 'saved', 'meta', 'agent-reports'], ...months.map((x) => `logs-${x}`)].map(remove));
     return { ok: true };
   }
   return fail(404, 'Not found');
