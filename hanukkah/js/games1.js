@@ -203,26 +203,30 @@ HK.games = HK.games || {};
   /* ======================= 3. חידון חנוכה ======================= */
   // בחירת סימן לחידון תלמידי חכמים
   function scholarPicker(root, onPick) {
-    var all = HK.QUIZ.filter(function (q) { return q.l === 3; });
+    var every = HK.QUIZ.filter(function (q) { return q.l === 3; });
+    var all = every.filter(function (q) { return !q.kaf; });
+    var kaf = every.filter(function (q) { return q.kaf; });
     var html = '<div class="game g-scholar">' +
-      '<div class="q-scholar">📜 חידון לתלמידי חכמים · הלכות חנוכה<br><small>שולחן ערוך אורח חיים סי\' תר"ע–תרפ"ד, עם הרמ"א והמשנה ברורה · ' + all.length + ' שאלות על כל הסימנים</small></div>' +
+      '<div class="q-scholar">📜 חידון לתלמידי חכמים · הלכות חנוכה<br><small>שולחן ערוך אורח חיים סי\' תר"ע–תרפ"ד, עם הרמ"א, המשנה ברורה והכף החיים · ' + every.length + ' שאלות</small></div>' +
       '<div class="sch-modes">' +
       '<button class="btn btn-gold" data-m="mix">🎯 מבחן כללי – 12 שאלות מכל הסימנים</button>' +
-      '<button class="btn btn-blue" data-m="all">📚 כל ההלכות ברצף (' + all.length + ' שאלות)</button>' +
+      '<button class="btn btn-kaf" data-m="kaf">📗 כף החיים – ' + kaf.length + ' שאלות עם מקור לפי ס"ק</button>' +
+      '<button class="btn btn-blue" data-m="all">📚 שו"ע ומשנה ברורה ברצף (' + all.length + ' שאלות)</button>' +
       '</div><h3 class="sch-h">או בחרו סימן:</h3><div class="sch-grid">';
     HK.SIMANIM.forEach(function (sm) {
-      var b = HK.store.best('quizsm:' + sm.id);
-      html += '<button class="sch-sm' + (b ? ' done' : '') + '" data-sm="' + sm.id + '"><b>סי\' ' + sm.n + '</b><span>' + sm.title + '</span><small>' + sm.qs.length + ' שאלות' + (b ? ' · ' + '★'.repeat(b) : '') + '</small></button>';
+      var b = HK.store.best('quizsm:' + sm.id), nk = kaf.filter(function (q) { return q.sm === sm.id; }).length;
+      html += '<button class="sch-sm' + (b ? ' done' : '') + '" data-sm="' + sm.id + '"><b>סי\' ' + sm.n + '</b><span>' + sm.title + '</span><small>' + (sm.qs.length + nk) + ' שאלות' + (nk ? ' · כולל כף החיים' : '') + (b ? ' · ' + '★'.repeat(b) : '') + '</small></button>';
     });
     root.innerHTML = html + '</div></div>';
     root.querySelectorAll('[data-m],[data-sm]').forEach(function (btn) {
       btn.onclick = function () {
         HK.audio.play('tap');
-        if (btn.dataset.m === 'mix') onPick(ui.shuffle(all).slice(0, 12), 'מבחן כללי', null);
+        if (btn.dataset.m === 'mix') onPick(ui.shuffle(every).slice(0, 12), 'מבחן כללי', null);
+        else if (btn.dataset.m === 'kaf') onPick(ui.shuffle(kaf).slice(0, 15), 'כף החיים – הלכות חנוכה', 'kaf');
         else if (btn.dataset.m === 'all') onPick(all.slice(), 'כל ההלכות ברצף', null);
         else {
           var sm = HK.SIMANIM.filter(function (x) { return x.id === +btn.dataset.sm; })[0];
-          onPick(all.filter(function (q) { return q.sm === sm.id; }), 'סימן ' + sm.n + ' – ' + sm.title, sm.id);
+          onPick(every.filter(function (q) { return q.sm === sm.id; }), 'סימן ' + sm.n + ' – ' + sm.title, sm.id);
         }
       };
     });

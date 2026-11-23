@@ -473,3 +473,5 @@ svg { display: block; }
 .sch-sm small { color: var(--muted); font-size: .82rem; }
 .sch-sm.done { border-color: var(--gold); }
 @media (min-width: 620px) { .sch-grid { grid-template-columns: repeat(3, 1fr); } }
+.btn-kaf { background: linear-gradient(180deg, #6fd39a, #1f7a4a); color: #fff; box-shadow: 0 6px 0 #0f4a2a, 0 10px 20px rgba(31,122,74,.35); }
+.btn-kaf:active { box-shadow: 0 2px 0 #0f4a2a; transform: translateY(4px) scale(.97); }
