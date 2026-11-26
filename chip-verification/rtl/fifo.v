@@ -31,6 +31,12 @@ module fifo #(
 );
     localparam AW = $clog2(DEPTH);          // address bits, e.g. DEPTH=16 -> 4
 
+    // Elaboration-time guard: the pointer scheme below needs a power-of-2 depth >= 2.
+    initial if (DEPTH < 2 || (1 << AW) != DEPTH) begin
+        $display("ERROR: fifo DEPTH=%0d must be a power of 2 and >= 2", DEPTH);
+        $finish;
+    end
+
     reg [WIDTH-1:0] mem [0:DEPTH-1];        // the storage array
     // Pointers have ONE EXTRA BIT (AW+1 bits). The lower AW bits address the
     // memory; the extra top bit flips every time a pointer wraps around.

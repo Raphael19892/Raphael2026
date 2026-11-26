@@ -18,7 +18,7 @@ built the way chip-verification teams do it, with every component of a UVM-style
 
 ## Run
 ```bash
-sudo apt-get install iverilog && pip install cocotb pytest
+sudo apt-get install iverilog && pip install "cocotb>=2.0,<3" pytest
 python3 run_tests.py            # regression + coverage report (coverage/coverage_report.txt)
 python3 run_tests.py --waves    # also dump a waveform for GTKWave
 python3 run_mutants.py          # inject every bug, regenerate results/mutation_report.md

@@ -20,6 +20,7 @@ from coverage import Coverage
 WIDTH = int(os.environ.get("FIFO_WIDTH", 8))
 DEPTH = int(os.environ.get("FIFO_DEPTH", 16))
 SEED = int(os.environ.get("SEED", 1))
+_instances = 0   # each test gets its own, still reproducible, random stream
 
 # One coverage object shared by every test of the run -> cumulative coverage.
 COV = Coverage(DEPTH, WIDTH)
@@ -39,7 +40,9 @@ class FifoTB:
         self.model = FifoModel(DEPTH, WIDTH)
         self.cycle_no = 0
         self.history = []          # last few input vectors, printed on failure
-        self.rng = random.Random(SEED)
+        global _instances
+        _instances += 1
+        self.rng = random.Random(f"{SEED}:{_instances}")
 
     # ---- driver ------------------------------------------------------------
     async def start(self):

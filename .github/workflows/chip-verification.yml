@@ -15,7 +15,7 @@ jobs:
       - uses: actions/setup-python@v5
         with: { python-version: "3.12" }
       - run: sudo apt-get update && sudo apt-get install -y iverilog
-      - run: pip install cocotb pytest
+      - run: pip install "cocotb>=2.0,<3" pytest
       - name: Regression on clean RTL
         run: python3 run_tests.py
       - name: Mutation testing (all injected bugs must be caught)
