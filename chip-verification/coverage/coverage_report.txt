@@ -1,0 +1,47 @@
+Functional coverage: 100.0%  (40/40 bins)
+
+[cross]  12/12
+   HIT   cross/empty/idle                       361
+   HIT   cross/empty/wr                         160
+   HIT   cross/empty/rd                         3016
+   HIT   cross/empty/wr+rd                      624
+   HIT   cross/mid/idle                         1701
+   HIT   cross/mid/wr                           3192
+   HIT   cross/mid/rd                           2609
+   HIT   cross/mid/wr+rd                        2219
+   HIT   cross/full/idle                        467
+   HIT   cross/full/wr                          3192
+   HIT   cross/full/rd                          239
+   HIT   cross/full/wr+rd                       836
+[count]  17/17
+   HIT   count/0                                4161
+   HIT   count/1                                1312
+   HIT   count/2                                439
+   HIT   count/3                                356
+   HIT   count/4                                335
+   HIT   count/5                                368
+   HIT   count/6                                425
+   HIT   count/7                                403
+   HIT   count/8                                390
+   HIT   count/9                                384
+   HIT   count/10                               395
+   HIT   count/11                               415
+   HIT   count/12                               603
+   HIT   count/13                               747
+   HIT   count/14                               927
+   HIT   count/15                               2222
+   HIT   count/16                               4734
+[wrap]  4/4
+   HIT   wrap/write_ptr_wraps_once              5773
+   HIT   wrap/read_ptr_wraps_once               5521
+   HIT   wrap/write_ptr_wraps_full_cycle        5414
+   HIT   wrap/read_ptr_wraps_full_cycle         5172
+[reset_when]  3/3
+   HIT   reset_when/empty                       37
+   HIT   reset_when/mid                         19
+   HIT   reset_when/full                        3
+[data]  4/4
+   HIT   data/all_zeros                         164
+   HIT   data/all_ones                          144
+   HIT   data/alternating_01                    167
+   HIT   data/alternating_10                    136
