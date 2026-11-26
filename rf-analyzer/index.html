@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מנתח ספקטרום RF</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0e13;
+    --panel: #111821;
+    --line: #213040;
+    --text: #d9e2ec;
+    --muted: #8796a8;
+    --accent: #ffb547;
+    --trace: #ffb547;
+    --hold: #6cc4ff;
+    --chan: #7ef0b5;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, "Segoe UI", Arial, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .btns { margin-inline-start: auto; display: flex; gap: 8px; }
+  button { background: #1a2431; color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .45; cursor: default; }
+  button.on { background: var(--accent); color: #1c1203; border-color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 12px; padding: 12px 16px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+  .plots { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .plot { position: relative; background: #05080b; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .plot .tag { position: absolute; top: 4px; inset-inline-start: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
+  canvas { display: block; width: 100%; direction: ltr; touch-action: none; }
+  #spec { height: min(48vh, 420px); cursor: crosshair; }
+  #wf   { height: min(28vh, 240px); }
+
+  .info { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; color: var(--muted); font-size: 13px; }
+  .info b { color: var(--text); }
+  .readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; }
+  .m { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .m .k { color: var(--muted); font-size: 11px; }
+  .m .v { font: 600 15px/1.3 ui-monospace, Menlo, Consolas, monospace; direction: ltr; text-align: right; font-variant-numeric: tabular-nums; }
+
+  aside { display: flex; flex-direction: column; gap: 10px; }
+  fieldset { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; margin: 0; padding: 8px 12px 12px; }
+  legend { padding: 0 6px; color: var(--accent); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 8px; }
+  .row label { color: var(--muted); font-size: 13px; }
+  select, input[type=number] { width: 100%; background: #0a1017; color: var(--text); border: 1px solid var(--line);
+         border-radius: 5px; padding: 5px 6px; font: inherit; }
+  input[type=number] { direction: ltr; text-align: right; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=file] { width: 100%; color: var(--muted); font-size: 12px; }
+  .rv { display: flex; gap: 6px; align-items: center; }
+  .rv output { min-width: 70px; font: 12px ui-monospace, monospace; direction: ltr; text-align: left; }
+  .tune { display: flex; gap: 6px; margin-top: 8px; }
+  .tune button { flex: 1; padding: 5px 6px; }
+  .check { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); }
+  .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<header>
+  <h1>מנתח ספקטרום RF</h1>
+  <span class="sub">IQ מרוכב · FM · AM · LoRa · ADS-B · קבצי SDR</span>
+  <div class="btns">
+    <button id="runBtn" class="on">פעיל</button>
+    <button id="resetBtn">איפוס מיצוע</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="plots">
+    <div class="plot"><canvas id="spec"></canvas><span class="tag">ספקטרום · לחיצה בוחרת ערוץ</span></div>
+    <div class="plot"><canvas id="wf"></canvas><span class="tag">מפל (זמן יורד למטה)</span></div>
+    <div class="info" id="sceneInfo"></div>
+    <div class="readout">
+      <div class="m"><div class="k">תדר השיא</div><div class="v" id="mPF">—</div></div>
+      <div class="m"><div class="k">רמת השיא (לכל bin)</div><div class="v" id="mPL">—</div></div>
+      <div class="m"><div class="k">מרכז הערוץ</div><div class="v" id="mCF">—</div></div>
+      <div class="m"><div class="k">הספק בערוץ</div><div class="v" id="mCP">—</div></div>
+      <div class="m"><div class="k">SNR בערוץ</div><div class="v" id="mCS">—</div></div>
+      <div class="m"><div class="k">רצפת רעש (חציון, לכל bin)</div><div class="v" id="mNF">—</div></div>
+      <div class="m"><div class="k">RBW</div><div class="v" id="mRBW">—</div></div>
+      <div class="m"><div class="k">זמן לכל שורה במפל</div><div class="v" id="mT">—</div></div>
+    </div>
+  </main>
+
+  <aside>
+    <fieldset>
+      <legend>מקור</legend>
+      <div class="row"><label for="source">מקור</label>
+        <select id="source">
+          <option value="fm">רדיו FM ‏(88–108 MHz)</option>
+          <option value="air">תעופה AM ‏(118–137 MHz)</option>
+          <option value="ism">ISM‏ 433 MHz: שלטים ו-LoRa</option>
+          <option value="adsb">ADS-B‏ 1090 MHz: מטוסים</option>
+          <option value="file">קובץ IQ אמיתי (SDR)</option>
+        </select></div>
+      <div id="fileBox" class="hidden">
+        <div class="row"><label for="file">קובץ</label><input type="file" id="file"></div>
+        <div class="row"><label for="fmt">פורמט</label>
+          <select id="fmt">
+            <option value="auto">זיהוי לפי סיומת</option>
+            <option value="cu8">cu8 (RTL-SDR, ‏8 ביט)</option>
+            <option value="cs8">cs8 (HackRF, ‏8 ביט)</option>
+            <option value="cs16">cs16 (‏16 ביט)</option>
+            <option value="cf32">cf32 (float)</option>
+            <option value="wav">WAV IQ (SDR#, SDRuno)</option>
+          </select></div>
+        <div class="row"><label for="ffc">תדר מרכז [MHz]</label><input type="number" id="ffc" value="100" step="0.001"></div>
+        <div class="row"><label for="ffs">קצב דגימה [MHz]</label><input type="number" id="ffs" value="2.4" step="0.001" min="0.001"></div>
+        <div class="note">ב-WAV קצב הדגימה נלקח מהקובץ. אם שם הקובץ מכיל תדר (למשל ‎100000000Hz), תדר המרכז ימולא לבד.</div>
+      </div>
+      <div class="note" id="srcNote">כל הסצנות מסומלצות. לאותות אמיתיים בחר "קובץ IQ אמיתי".</div>
+    </fieldset>
+
+    <fieldset id="tuneBox">
+      <legend>כיוונון</legend>
+      <div class="row"><label for="fc">תדר מרכז [MHz]</label><input type="number" id="fc" value="99.5" step="0.1"></div>
+      <div class="tune">
+        <button id="tuneDown">−1 MHz</button>
+        <button id="tuneToCh">כוון לערוץ</button>
+        <button id="tuneUp">+1 MHz</button>
+      </div>
+      <div class="row"><label for="fs">קצב דגימה</label>
+        <select id="fs">
+          <option value="1024000">1.024 MS/s</option>
+          <option value="2048000">2.048 MS/s</option>
+          <option value="2400000" selected>2.4 MS/s</option>
+          <option value="3200000">3.2 MS/s</option>
+        </select></div>
+      <div class="row"><label for="noise">רמת רעש</label>
+        <div class="rv"><input type="range" id="noise" min="-80" max="-20" step="1" value="-50"><output id="noiseO"></output></div></div>
+    </fieldset>
+
+    <fieldset id="impBox">
+      <legend>פגמי מקלט אמיתי</legend>
+      <label class="check"><input type="checkbox" id="dc"> קו DC במרכז</label>
+      <label class="check"><input type="checkbox" id="iq"> חוסר איזון IQ (תמונת ראי)</label>
+      <div class="note">שני הפגמים אופייניים למקלטי Zero-IF זולים כמו RTL-SDR.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>ניתוח</legend>
+      <div class="row"><label for="N">גודל FFT</label>
+        <select id="N">
+          <option>4096</option><option>8192</option><option selected>16384</option><option>32768</option><option>65536</option>
+        </select></div>
+      <div class="row"><label for="win">חלון</label>
+        <select id="win">
+          <option value="rect">מלבני</option>
+          <option value="hann" selected>Hann</option>
+          <option value="blackman">Blackman</option>
+          <option value="bh">Blackman-Harris</option>
+          <option value="flattop">Flat-top</option>
+        </select></div>
+      <div class="row"><label for="avg">מיצוע</label>
+        <div class="rv"><input type="range" id="avg" min="1" max="32" step="1" value="4"><output id="avgO"></output></div></div>
+      <label class="check"><input type="checkbox" id="hold"> החזקת מקסימום (Max hold)</label>
+      <div class="row"><label for="chbw">רוחב ערוץ [kHz]</label><input type="number" id="chbw" value="200" min="1" step="1"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>תצוגה</legend>
+      <div class="row"><label for="span">רוחב תצוגה</label>
+        <select id="span">
+          <option value="1" selected>מלא</option><option value="2">½</option><option value="4">¼</option>
+          <option value="8">⅛</option><option value="16">1/16</option><option value="32">1/32</option>
+        </select></div>
+      <div class="note">בזום, התצוגה מתמרכזת על הערוץ שבחרת.</div>
+      <div class="row"><label for="ref">רמת ייחוס</label>
+        <div class="rv"><input type="range" id="ref" min="-60" max="10" step="5" value="-10"><output id="refO"></output></div></div>
+      <div class="row"><label for="range">טווח דינמי</label>
+        <div class="rv"><input type="range" id="range" min="30" max="140" step="10" value="90"><output id="rangeO"></output></div></div>
+    </fieldset>
+  </aside>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const TAU = 2 * Math.PI;
+const clamp1 = v => v > 1 ? 1 : v < -1 ? -1 : v;
+
+/* ------------------------------------------------------------------
+   Complex FFT (radix-2, in place). Same algorithm as the audio analyzer,
+   but here the input is complex IQ: re = I, im = Q.
+   ------------------------------------------------------------------ */
+const fftTables = {};
+function tables(N) {
+  if (fftTables[N]) return fftTables[N];
+  const bits = Math.log2(N), rev = new Uint32Array(N);
+  for (let i = 0; i < N; i++) { let r = 0, x = i; for (let b = 0; b < bits; b++) { r = (r << 1) | (x & 1); x >>= 1; } rev[i] = r; }
+  const cos = new Float64Array(N / 2), sin = new Float64Array(N / 2);
+  for (let k = 0; k < N / 2; k++) { cos[k] = Math.cos(TAU * k / N); sin[k] = Math.sin(TAU * k / N); }
+  return (fftTables[N] = { rev, cos, sin });
+}
+function fft(re, im) {
+  const N = re.length, { rev, cos, sin } = tables(N);
+  for (let i = 0; i < N; i++) { const j = rev[i]; if (j > i) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+  for (let size = 2; size <= N; size <<= 1) {
+    const half = size >> 1, step = N / size;
+    for (let i = 0; i < N; i += size) for (let j = 0, k = 0; j < half; j++, k += step) {
+      const a = i + j, b = a + half;
+      const tr = re[b] * cos[k] + im[b] * sin[k], ti = im[b] * cos[k] - re[b] * sin[k];
+      re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+    }
+  }
+}
+const WINDOWS = {
+  rect: [1], hann: [0.5, 0.5], blackman: [0.42, 0.5, 0.08],
+  bh: [0.35875, 0.48829, 0.14128, 0.01168],
+  flattop: [0.21557895, 0.41663158, 0.277263158, 0.083578947, 0.006947368],
+};
+function makeWindow(type, N) {
+  const c = WINDOWS[type], w = new Float64Array(N); let s1 = 0, s2 = 0;
+  for (let n = 0; n < N; n++) {
+    let v = 0; for (let m = 0; m < c.length; m++) v += (m % 2 ? -1 : 1) * c[m] * Math.cos(TAU * m * n / N);
+    w[n] = v; s1 += v; s2 += v * v;
+  }
+  return { w, s1, s2, enbw: N * s2 / (s1 * s1) };
+}
+
+/* ------------------------------------------------------------------
+   Simulated RF signals. Each one adds itself to the complex baseband
+   buffers (I, Q) as seen by a receiver tuned to fc with sample rate fs:
+   a signal at absolute frequency f appears at offset (f - fc).
+   pdb = signal power in dBFS (full-scale complex tone = 0 dBFS).
+   ------------------------------------------------------------------ */
+const amp = pdb => Math.pow(10, pdb / 20);
+
+class FMStation {               // wideband FM broadcast: ±75 kHz deviation
+  constructor(f, pdb) { this.f = f; this.A = amp(pdb); this.ph = Math.random() * TAU; this.m = 0; this.pp = 0; }
+  render(I, Q, n, fs, fc) {
+    const off = this.f - fc; if (Math.abs(off) > fs / 2 + 150e3) return;
+    let ph = this.ph, m = this.m, pp = this.pp; const k = TAU / fs, A = this.A, dev = 75e3, dpp = TAU * 19e3 / fs;
+    for (let i = 0; i < n; i++) {
+      m += 0.02 * ((Math.random() * 2 - 1) - m);          // "programme audio": low-passed noise
+      pp += dpp; if (pp > TAU) pp -= TAU;                  // 19 kHz stereo pilot
+      ph += k * (off + dev * (0.9 * clamp1(m * 11) + 0.1 * Math.sin(pp)));
+      if (ph > TAU) ph -= TAU; else if (ph < 0) ph += TAU;
+      I[i] += A * Math.cos(ph); Q[i] += A * Math.sin(ph);
+    }
+    this.ph = ph; this.m = m; this.pp = pp;
+  }
+}
+
+class AMVoice {                 // aviation AM: push-to-talk bursts of voice
+  constructor(f, pdb) { this.f = f; this.A = amp(pdb); this.ph = 0; this.m = 0; this.on = false; this.next = Math.random() * 2; }
+  render(I, Q, n, fs, fc, t0) {
+    if (t0 >= this.next) { this.on = !this.on; this.next = t0 + (this.on ? 0.3 + Math.random() * 1.5 : 0.5 + Math.random() * 3); }
+    const off = this.f - fc;
+    if (!this.on || Math.abs(off) > fs / 2 + 10e3) return;
+    let ph = this.ph, m = this.m; const w = TAU * off / fs, A = this.A;
+    for (let i = 0; i < n; i++) {
+      m += 0.008 * ((Math.random() * 2 - 1) - m);          // ~3 kHz voice-like modulation
+      const env = A * (1 + 0.8 * clamp1(m * 16));
+      ph += w; if (ph > TAU) ph -= TAU; else if (ph < -TAU) ph += TAU;
+      I[i] += env * Math.cos(ph); Q[i] += env * Math.sin(ph);
+    }
+    this.ph = ph; this.m = m;
+  }
+}
+
+class OOKRemote {               // garage / car remote: carrier keyed on-off, 2 kbit/s, drifting crystal
+  constructor(f, pdb) { this.f = f; this.A = amp(pdb); this.ph = 0; this.next = Math.random(); this.end = -1; }
+  render(I, Q, n, fs, fc, t0) {
+    if (t0 >= this.next && t0 > this.end) {
+      this.start = t0; this.end = t0 + 0.08 + Math.random() * 0.06; this.next = this.end + 0.4 + Math.random() * 1.5;
+      this.bits = Array.from({ length: 48 }, () => Math.random() < 0.5 ? 1 : 0);
+      this.f0 = this.f + (Math.random() - 0.5) * 30e3;
+    }
+    if (this.end < t0) return;
+    const off = this.f0 - fc; if (Math.abs(off) > fs / 2 + 20e3) return;
+    let ph = this.ph; const w = TAU * off / fs, A = this.A;
+    for (let i = 0; i < n; i++) {
+      const t = t0 + i / fs; if (t > this.end) break;
+      ph += w; if (ph > TAU) ph -= TAU; else if (ph < -TAU) ph += TAU;
+      if (this.bits[Math.floor((t - this.start) * 2000) % 48]) { I[i] += A * Math.cos(ph); Q[i] += A * Math.sin(ph); }
+    }
+    this.ph = ph;
+  }
+}
+
+class LoRa {                    // LoRa CSS: chirps sweeping a 125 kHz channel, SF7
+  constructor(f, pdb) { this.f = f; this.A = amp(pdb); this.ph = 0; this.next = Math.random() * 2; this.end = -1; this.BW = 125e3; this.T = 128 / 125e3; }
+  render(I, Q, n, fs, fc, t0) {
+    if (t0 >= this.next && t0 > this.end) {
+      this.syms = [0, 0, 0, 0, 0, 0, 0, 0].concat(Array.from({ length: 24 }, () => Math.floor(Math.random() * 128)));
+      this.start = t0; this.end = t0 + this.syms.length * this.T; this.next = this.end + 1 + Math.random() * 3;
+    }
+    if (this.end < t0) return;
+    const off = this.f - fc; if (Math.abs(off) > fs / 2 + this.BW) return;
+    let ph = this.ph; const A = this.A, BW = this.BW, T = this.T;
+    for (let i = 0; i < n; i++) {
+      const tau = t0 + i / fs - this.start; if (tau < 0) continue; if (tau >= this.end - this.start) break;
+      const s = Math.floor(tau / T), u = tau / T - s;
+      const fr = (((this.syms[s] / 128) + u) % 1) * BW - BW / 2;   // cyclically shifted up-chirp
+      ph += TAU * (off + fr) / fs; if (ph > TAU) ph -= TAU; else if (ph < -TAU) ph += TAU;
+      I[i] += A * Math.cos(ph); Q[i] += A * Math.sin(ph);
+    }
+    this.ph = ph;
+  }
+}
+
+class ADSB {                    // Mode-S extended squitter: 8 µs preamble + 112 bits PPM at 1 Mbit/s
+  constructor(f, pdb) { this.f = f; this.pdb = pdb; this.next = 0; this.q = []; }
+  render(I, Q, n, fs, fc, t0) {
+    const t1 = t0 + n / fs;
+    while (this.next < t1) {                                 // Poisson arrivals from many aircraft
+      this.q.push({ start: this.next, A: amp(this.pdb - Math.random() * 25), ph: Math.random() * TAU,
+                    bits: Array.from({ length: 112 }, () => Math.random() < 0.5 ? 1 : 0) });
+      this.next += -Math.log(1 - Math.random()) * 0.02;
+    }
+    const off = this.f - fc, w = TAU * off / fs;
+    for (const ev of this.q) {
+      if (Math.abs(off) > fs / 2 + 1e6) break;
+      const i0 = Math.max(0, Math.ceil((ev.start - t0) * fs)), i1 = Math.min(n, Math.ceil((ev.start + 120e-6 - t0) * fs));
+      for (let i = i0; i < i1; i++) {
+        const us = (t0 + i / fs - ev.start) * 1e6;
+        let on;
+        if (us < 8) on = (us < 0.5) || (us >= 1 && us < 1.5) || (us >= 3.5 && us < 4) || (us >= 4.5 && us < 5);
+        else { const b = Math.floor(us - 8), firstHalf = (us - 8 - b) < 0.5; on = ev.bits[b] ? firstHalf : !firstHalf; }
+        if (on) { const p = ev.ph + w * i; I[i] += ev.A * Math.cos(p); Q[i] += ev.A * Math.sin(p); }
+      }
+    }
+    this.q = this.q.filter(ev => ev.start + 120e-6 > t1);
+  }
+}
+
+const MHz = 1e6;
+const SCENES = {
+  fm: { fc: 99.5, noise: -50, chbw: 200, info:
+    "<b>רדיו FM מסחרי.</b> כל תחנה תופסת כ-200 kHz, כי זה אפנון תדר: המוזיקה מזיזה את התדר עד ±75 kHz. בתחנות חזקות ההר גבוה, בחלשות הוא נמוך. לחץ על תחנה כדי למדוד את ההספק וה-SNR שלה, ועבור בין התחנות עם ±1 MHz.",
+    make: () => [[88.5,-38],[89.1,-30],[90.3,-45],[91.8,-28],[93.7,-41],[95.5,-33],[96.3,-48],[97.2,-26],[98.6,-36],
+                 [99.6,-24],[100.4,-40],[101.5,-31],[102.3,-44],[103.6,-29],[104.5,-37],[106.0,-34],[107.5,-42]]
+                 .map(([f, p]) => new FMStation(f * MHz, p)) },
+  air: { fc: 121.0, noise: -55, chbw: 8.33, info:
+    "<b>תדרי תעופה, אפנון AM.</b> השידורים קצרים: הטייס או הפקח לוחץ על מתג הדיבור ומשחרר, ולכן במפל רואים קווים מקוטעים. הקו הצר באמצע כל אות הוא הנושא (carrier), והקול יוצר סביבו פסי צד ברוחב של כמה kHz. כדאי לעשות זום של 1/16 על אחד הערוצים.",
+    make: () => [[118.1,-50],[118.7,-42],[119.9,-38],[120.25,-46],[120.5,-35],[120.825,-52],[121.1,-40],[121.5,-44],
+                 [121.85,-37],[122.1,-48],[124.35,-41],[126.0,-39],[127.9,-47],[132.0,-43],[135.65,-45]]
+                 .map(([f, p]) => new AMVoice(f * MHz, p)) },
+  ism: { fc: 433.6, noise: -55, chbw: 125, info:
+    "<b>תחום ISM ב-433 MHz.</b> שני סוגי אותות: <b>שלטים</b> (OOK: הנושא נדלק ונכבה לפי הביטים, והתדר זז קצת בכל לחיצה כי הגביש זול), ו-<b>LoRa</b> (chirp: התדר סורק את כל הערוץ שוב ושוב, וכך משיגים טווח של קילומטרים בהספק נמוך). השידורים קצרים, אז הפעל החזקת מקסימום.",
+    make: () => [new OOKRemote(433.92 * MHz, -30), new OOKRemote(433.42 * MHz, -42),
+                 new LoRa(433.175 * MHz, -40), new LoRa(433.375 * MHz, -36), new LoRa(433.575 * MHz, -46)] },
+  adsb: { fc: 1090, noise: -50, chbw: 2000, info:
+    "<b>ADS-B, תדר 1090 MHz.</b> מטוסים משדרים מיקום, גובה ומהירות בפולסים קצרים של 120 מיקרו-שניות. אות קצר בזמן הוא רחב בתדר, ולכן כל הודעה תופסת כ-2 MHz. במפל רואים הבזקים, ועם החזקת מקסימום רואים את צורת הספקטרום של הפולסים.",
+    make: () => [new ADSB(1090 * MHz, -12)] },
+  file: { info:
+    "<b>קובץ IQ אמיתי.</b> בחר הקלטה שנעשתה במקלט SDR (למשל ב-rtl_sdr, ב-SDR# או ב-HackRF). הקובץ מתנגן בלולאה, וכל שורה במפל היא קטע רצוף ממנו. אפשר למצוא הקלטות לדוגמה באתרים כמו Signal Identification Wiki." },
+};
+
+/* ------------------------------------------------------------------
+   State
+   ------------------------------------------------------------------ */
+const S = { source: "fm", fc: 99.5 * MHz, fs: 2.4e6, N: 16384, win: "hann", avgN: 4, hold: false,
+            noise: -50, dc: false, iq: false, chF: 99.6 * MHz, chBW: 200e3, spanDiv: 1, ref: -10, range: 90, running: true, t: 0 };
+let signals = SCENES.fm.make();
+let win, re, im, avgP, maxP, dB, holdDB, needReset = true;
+
+function alloc() {
+  win = makeWindow(S.win, S.N);
+  re = new Float64Array(S.N); im = new Float64Array(S.N);
+  avgP = new Float64Array(S.N); maxP = new Float64Array(S.N);
+  dB = new Float64Array(S.N); holdDB = new Float64Array(S.N);
+  needReset = true;
+}
+
+/* ------------------------------------------------------------------
+   Acquisition: simulated receiver, or IQ file
+   ------------------------------------------------------------------ */
+function simulate() {
+  const n = S.N, fs = S.fs, I = new Float64Array(n), Q = new Float64Array(n);
+  for (const s of signals) s.render(I, Q, n, fs, S.fc, S.t);
+  const sig = Math.sqrt(Math.pow(10, S.noise / 10) / 2);      // complex AWGN, total power = S.noise dBFS
+  for (let i = 0; i < n; i++) {
+    let u = Math.random(); if (u < 1e-300) u = 1e-300;
+    const r = sig * Math.sqrt(-2 * Math.log(u)), a = TAU * Math.random();
+    I[i] += r * Math.cos(a); Q[i] += r * Math.sin(a);
+  }
+  if (S.iq) {                                                  // gain 1.06, phase error 4°  -> image ≈ −27 dB
+    const g = 1.06, c = Math.cos(4 * Math.PI / 180), s = Math.sin(4 * Math.PI / 180);
+    for (let i = 0; i < n; i++) Q[i] = g * (c * Q[i] - s * I[i]);
+  }
+  if (S.dc) for (let i = 0; i < n; i++) { I[i] += 0.004; Q[i] -= 0.0025; }
+  S.t += n / fs;
+  return { I, Q };
+}
+
+const F = { file: null, fmt: "cu8", start: 0, end: 0, pos: 0, busy: false, ready: null, err: "" };
+const BPS = { cu8: 2, cs8: 2, cs16: 4, cf32: 8 };                // bytes per complex sample
+function decode(buf, fmt, n) {
+  const I = new Float64Array(n), Q = new Float64Array(n);
+  if (fmt === "cu8") { const b = new Uint8Array(buf); for (let i = 0; i < n; i++) { I[i] = (b[2 * i] - 127.5) / 127.5; Q[i] = (b[2 * i + 1] - 127.5) / 127.5; } }
+  else if (fmt === "cs8") { const b = new Int8Array(buf); for (let i = 0; i < n; i++) { I[i] = b[2 * i] / 128; Q[i] = b[2 * i + 1] / 128; } }
+  else if (fmt === "cs16") { const b = new Int16Array(buf); for (let i = 0; i < n; i++) { I[i] = b[2 * i] / 32768; Q[i] = b[2 * i + 1] / 32768; } }
+  else { const b = new Float32Array(buf); for (let i = 0; i < n; i++) { I[i] = b[2 * i]; Q[i] = b[2 * i + 1]; } }
+  return { I, Q };
+}
+async function openFile(file) {
+  F.file = null; F.err = "";
+  let fmt = $("fmt").value;
+  const name = file.name.toLowerCase();
+  if (fmt === "auto") fmt = name.endsWith(".wav") ? "wav" : name.endsWith(".cs8") ? "cs8" : name.endsWith(".cs16") ? "cs16"
+                         : /\.(cf32|fc32|cfile|raw32)$/.test(name) ? "cf32" : "cu8";
+  const hz = file.name.match(/(\d{6,11})\s*hz/i);
+  if (hz) $("ffc").value = (+hz[1] / MHz).toFixed(6);
+  let start = 0, end = file.size;
+  if (fmt === "wav") {
+    const v = new DataView(await file.slice(0, Math.min(file.size, 1 << 16)).arrayBuffer());
+    const tag = o => String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3));
+    if (tag(0) !== "RIFF" || tag(8) !== "WAVE") throw new Error("זה לא קובץ WAV תקין");
+    let p = 12, ch = 0, rate = 0, bits = 0, af = 0;
+    while (p + 8 <= v.byteLength) {
+      const id = tag(p), size = v.getUint32(p + 4, true);
+      if (id === "fmt ") { af = v.getUint16(p + 8, true); ch = v.getUint16(p + 10, true); rate = v.getUint32(p + 12, true); bits = v.getUint16(p + 22, true); }
+      if (id === "data") { start = p + 8; end = Math.min(file.size, start + size); break; }
+      p += 8 + size + (size & 1);
+    }
+    if (ch !== 2) throw new Error("קובץ WAV של IQ חייב להיות בשני ערוצים (I ו-Q)");
+    fmt = bits === 8 ? "cu8" : bits === 16 ? "cs16" : (bits === 32 && af === 3) ? "cf32" : null;
+    if (!fmt) throw new Error(`פורמט WAV לא נתמך (${bits} ביט)`);
+    $("ffs").value = (rate / MHz).toFixed(6);
+  }
+  Object.assign(F, { file, fmt, start, end, pos: start, ready: null, busy: false });
+  applyFileParams();
+  return fmt;
+}
+function applyFileParams() {
+  S.fc = (+$("ffc").value || 0) * MHz; S.fs = Math.max(1e3, (+$("ffs").value || 2.4) * MHz);
+  S.chF = S.fc; needReset = true;
+}
+function acquire() {
+  if (S.source !== "file") return simulate();
+  if (!F.file) return null;
+  const blk = F.ready; F.ready = null;
+  if (!F.busy) {                                               // read the next block in the background
+    F.busy = true;
+    const need = S.N * BPS[F.fmt], fmt = F.fmt, n = S.N;
+    if (F.pos + need > F.end) F.pos = F.start;                 // loop the recording
+    if (F.end - F.start < need) { F.busy = false; F.err = "הקובץ קצר מגודל ה-FFT. בחר FFT קטן יותר."; return null; }
+    const p = F.pos; F.pos += need;
+    F.file.slice(p, p + need).arrayBuffer().then(buf => { F.ready = decode(buf, fmt, n); F.busy = false; })
+      .catch(e => { F.err = e.message; F.busy = false; });
+  }
+  return blk;
+}
+
+/* ------------------------------------------------------------------
+   Spectrum (fft-shifted so index 0 = fc − fs/2) and measurements
+   ------------------------------------------------------------------ */
+let meas = null;
+function process({ I, Q }) {
+  const N = S.N, w = win.w, h = N / 2;
+  for (let n = 0; n < N; n++) { re[n] = I[n] * w[n]; im[n] = Q[n] * w[n]; }
+  fft(re, im);
+  const a = needReset ? 1 : 1 / S.avgN, cal = 1 / (win.s1 * win.s1);
+  for (let k = 0; k < N; k++) {
+    const j = (k + h) % N;                                     // fftshift
+    const p = re[k] * re[k] + im[k] * im[k];
+    avgP[j] += a * (p - avgP[j]);
+    maxP[j] = needReset ? p : Math.max(maxP[j], p);
+  }
+  needReset = false;
+  for (let j = 0; j < N; j++) { dB[j] = 10 * Math.log10(avgP[j] * cal + 1e-30); holdDB[j] = 10 * Math.log10(maxP[j] * cal + 1e-30); }
+  meas = measure();
+}
+const f2bin = f => (f - S.fc) / S.fs * S.N + S.N / 2;
+function measure() {
+  const N = S.N, [va, vb] = viewRange();
+  const j0 = Math.max(1, Math.ceil(f2bin(va))), j1 = Math.min(N - 2, Math.floor(f2bin(vb)));
+  let pk = j0; for (let j = j0; j <= j1; j++) if (dB[j] > dB[pk]) pk = j;
+  const a = dB[pk - 1], b = dB[pk], c = dB[pk + 1], den = a - 2 * b + c;
+  const d = den !== 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / den)) : 0;
+  const sorted = Array.from(avgP).sort((x, y) => x - y), medP = sorted[N >> 1];
+  // channel power: Parseval-consistent band power, Σ|X|² / (N·Σw²)
+  const c0 = Math.max(0, Math.ceil(f2bin(S.chF - S.chBW / 2))), c1 = Math.min(N - 1, Math.floor(f2bin(S.chF + S.chBW / 2)));
+  let pc = 0; for (let j = c0; j <= c1; j++) pc += avgP[j];
+  const nb = Math.max(1, c1 - c0 + 1), norm = N * win.s2, pn = medP * nb / norm, pch = pc / norm;
+  return {
+    pf: S.fc + (pk + d - N / 2) * S.fs / N, pl: b,
+    chP: 10 * Math.log10(pch + 1e-30), chSNR: 10 * Math.log10(Math.max(pch - pn, 1e-30) / pn),
+    floor: 10 * Math.log10(medP / (win.s1 * win.s1) + 1e-30),
+    rbw: win.enbw * S.fs / N, rowT: N / S.fs,
+  };
+}
+
+/* ------------------------------------------------------------------
+   Drawing
+   ------------------------------------------------------------------ */
+const specC = $("spec"), wfC = $("wf"), sctx = specC.getContext("2d"), wctx = wfC.getContext("2d");
+let dpr = 1, colDb = new Float64Array(0), colHold = new Float64Array(0), cursor = null;
+const PADL = 44, PADB = 20;
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  for (const c of [specC, wfC]) { c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr); }
+  wctx.fillStyle = "#000"; wctx.fillRect(0, 0, wfC.width, wfC.height);
+}
+window.addEventListener("resize", resize);
+
+function viewRange() {
+  const span = S.fs / S.spanDiv, lo = S.fc - S.fs / 2 + span / 2, hi = S.fc + S.fs / 2 - span / 2;
+  const c = S.spanDiv === 1 ? S.fc : Math.min(hi, Math.max(lo, S.chF));
+  return [c - span / 2, c + span / 2];
+}
+const f2x = (f, W) => { const [a, b] = viewRange(); return (f - a) / (b - a) * W; };
+const x2f = (x, W) => { const [a, b] = viewRange(); return a + (b - a) * x / W; };
+function fmtMHz(f, step) {
+  const dec = Math.max(0, Math.min(6, Math.ceil(-Math.log10(step / MHz) - 1e-9)));
+  return (f / MHz).toFixed(dec);
+}
+function columns(src, out, W) {
+  const N = S.N;
+  for (let px = 0; px < W; px++) {
+    const ja = f2bin(x2f(px, W)), jb = f2bin(x2f(px + 1, W));
+    const i0 = Math.max(0, Math.ceil(ja)), i1 = Math.min(N - 1, Math.floor(jb));
+    if (i1 >= i0) { let m = -Infinity; for (let j = i0; j <= i1; j++) if (src[j] > m) m = src[j]; out[px] = m; }
+    else { const jc = Math.max(0, Math.min(N - 1.001, (ja + jb) / 2)), j = Math.floor(jc), t = jc - j; out[px] = src[j] * (1 - t) + src[j + 1] * t; }
+  }
+}
+
+function drawSpectrum() {
+  const c = sctx, Wt = specC.width, Ht = specC.height, L = PADL * dpr, B = PADB * dpr, W = Wt - L, H = Ht - B;
+  c.fillStyle = "#05080b"; c.fillRect(0, 0, Wt, Ht);
+  c.font = `${11 * dpr}px ui-monospace, monospace`;
+  const y = v => (S.ref - v) / S.range * H;
+  c.strokeStyle = "#16212d"; c.fillStyle = "#6f7f92"; c.lineWidth = 1; c.textAlign = "right"; c.textBaseline = "middle";
+  const st = S.range > 80 ? 20 : 10;
+  for (let v = Math.floor(S.ref / st) * st; v >= S.ref - S.range; v -= st) {
+    const yy = Math.round(y(v)) + 0.5; c.beginPath(); c.moveTo(L, yy); c.lineTo(Wt, yy); c.stroke(); c.fillText(v, L - 4 * dpr, yy);
+  }
+  const [fa, fb] = viewRange(), raw = (fb - fa) / 6, p10 = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 5, 10].map(m => m * p10).find(s => s >= raw);
+  c.textAlign = "center"; c.textBaseline = "top";
+  for (let f = Math.ceil(fa / step) * step; f <= fb + 1e-6; f += step) {
+    const xx = Math.round(L + f2x(f, W)) + 0.5;
+    c.beginPath(); c.moveTo(xx, 0); c.lineTo(xx, H); c.stroke(); c.fillText(fmtMHz(f, step), xx, H + 4 * dpr);
+  }
+  if (colDb.length !== W) { colDb = new Float64Array(W); colHold = new Float64Array(W); }
+  columns(dB, colDb, W);
+
+  c.save(); c.beginPath(); c.rect(L, 0, W, H); c.clip();
+  // channel band
+  const cx0 = L + f2x(S.chF - S.chBW / 2, W), cx1 = L + f2x(S.chF + S.chBW / 2, W);
+  c.fillStyle = "rgba(126,240,181,.10)"; c.fillRect(cx0, 0, Math.max(1, cx1 - cx0), H);
+  c.strokeStyle = "rgba(126,240,181,.6)"; c.setLineDash([4 * dpr, 4 * dpr]);
+  c.beginPath(); c.moveTo(cx0, 0); c.lineTo(cx0, H); c.moveTo(cx1, 0); c.lineTo(cx1, H); c.stroke(); c.setLineDash([]);
+  if (S.hold) {
+    columns(holdDB, colHold, W);
+    c.strokeStyle = "rgba(108,196,255,.75)"; c.lineWidth = 1 * dpr; c.beginPath();
+    for (let px = 0; px < W; px++) c.lineTo(L + px, y(colHold[px])); c.stroke();
+  }
+  const g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "rgba(255,181,71,.33)"); g.addColorStop(1, "rgba(255,181,71,0)");
+  c.beginPath(); c.moveTo(L, H); for (let px = 0; px < W; px++) c.lineTo(L + px, y(colDb[px])); c.lineTo(L + W, H); c.closePath();
+  c.fillStyle = g; c.fill();
+  c.strokeStyle = "#ffb547"; c.lineWidth = 1.3 * dpr; c.beginPath();
+  for (let px = 0; px < W; px++) c.lineTo(L + px, y(colDb[px])); c.stroke();
+  if (meas) {                                                  // peak marker
+    const px = Math.max(0, Math.min(W - 1, Math.round(f2x(meas.pf, W)))), yy = y(colDb[px]);
+    c.fillStyle = "#fff"; c.beginPath(); c.moveTo(L + px, yy - 3 * dpr); c.lineTo(L + px - 5 * dpr, yy - 12 * dpr); c.lineTo(L + px + 5 * dpr, yy - 12 * dpr); c.fill();
+  }
+  if (cursor !== null) {
+    const px = Math.round(cursor * dpr - L);
+    if (px >= 0 && px < W) {
+      const f = x2f(px + 0.5, W), txt = `${(f / MHz).toFixed(4)} MHz  ${colDb[px].toFixed(1)} dBFS`;
+      c.strokeStyle = "rgba(108,196,255,.7)"; c.lineWidth = 1; c.beginPath(); c.moveTo(L + px + 0.5, 0); c.lineTo(L + px + 0.5, H); c.stroke();
+      c.font = `${12 * dpr}px ui-monospace, monospace`;
+      const tw = c.measureText(txt).width + 10 * dpr, bx = Math.min(L + px + 8 * dpr, Wt - tw - 2);
+      c.fillStyle = "rgba(10,20,30,.92)"; c.fillRect(bx, 6 * dpr, tw, 20 * dpr);
+      c.fillStyle = "#6cc4ff"; c.textAlign = "left"; c.textBaseline = "middle"; c.fillText(txt, bx + 5 * dpr, 16 * dpr);
+    }
+  }
+  c.restore();
+  c.fillStyle = "#6f7f92"; c.textAlign = "left"; c.textBaseline = "top"; c.font = `${10 * dpr}px ui-monospace, monospace`;
+  c.fillText("dBFS", 2 * dpr, 2 * dpr); c.textAlign = "right"; c.fillText("MHz", Wt - 4 * dpr, H - 14 * dpr);
+}
+
+const LUT = (() => {
+  const st = [[0, 0, 0, 4], [.25, 30, 20, 90], [.5, 140, 30, 110], [.72, 230, 90, 40], [.9, 252, 190, 60], [1, 255, 250, 210]];
+  const out = new Uint8Array(768);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255; let j = 0; while (j < st.length - 2 && t > st[j + 1][0]) j++;
+    const [t0, r0, g0, b0] = st[j], [t1, r1, g1, b1] = st[j + 1], u = (t - t0) / (t1 - t0);
+    out[i * 3] = r0 + (r1 - r0) * u; out[i * 3 + 1] = g0 + (g1 - g0) * u; out[i * 3 + 2] = b0 + (b1 - b0) * u;
+  }
+  return out;
+})();
+let wfRow = null;
+function drawWaterfall() {
+  const Wt = wfC.width, L = PADL * dpr, W = colDb.length; if (!W) return;
+  wctx.drawImage(wfC, 0, 1);
+  if (!wfRow || wfRow.width !== Wt) wfRow = wctx.createImageData(Wt, 1);
+  const d = wfRow.data;
+  for (let x = 0; x < Wt; x++) {
+    let i = 0;
+    if (x >= L) { const v = colDb[Math.min(W - 1, Math.floor((x - L) * W / (Wt - L)))]; i = Math.max(0, Math.min(255, Math.round((v - (S.ref - S.range)) / S.range * 255))); }
+    d[4 * x] = LUT[3 * i]; d[4 * x + 1] = LUT[3 * i + 1]; d[4 * x + 2] = LUT[3 * i + 2]; d[4 * x + 3] = 255;
+  }
+  wctx.putImageData(wfRow, 0, 0);
+}
+
+let lastUI = 0;
+function updateReadout(now) {
+  if (now - lastUI < 200) return; lastUI = now;
+  if (S.source === "file") $("srcNote").textContent = F.err ? F.err : F.file ? `${F.file.name} · ${F.fmt} · fs = ${(S.fs / MHz).toFixed(3)} MS/s` : "בחר קובץ";
+  if (!meas) return;
+  const m = meas, f = (v, d, u) => isFinite(v) ? v.toFixed(d) + u : "—";
+  $("mPF").textContent = f(m.pf / MHz, 5, " MHz");
+  $("mPL").textContent = f(m.pl, 1, " dBFS");
+  $("mCF").textContent = `${(S.chF / MHz).toFixed(4)} MHz`;
+  $("mCP").textContent = f(m.chP, 1, " dBFS");
+  $("mCS").textContent = f(m.chSNR, 1, " dB");
+  $("mNF").textContent = f(m.floor, 1, " dBFS");
+  $("mRBW").textContent = m.rbw >= 1000 ? f(m.rbw / 1000, 2, " kHz") : f(m.rbw, 1, " Hz");
+  $("mT").textContent = f(m.rowT * 1000, 2, " ms");
+}
+
+let wasRunning = true;
+function frame(now) {
+  requestAnimationFrame(frame);
+  let fresh = false;
+  if (S.running) { const blk = acquire(); if (blk) { process(blk); fresh = true; } }
+  drawSpectrum();
+  if (fresh) drawWaterfall();
+  updateReadout(now);
+}
+
+/* ------------------------------------------------------------------
+   UI
+   ------------------------------------------------------------------ */
+function bindRange(id, fmt, apply) {
+  const el = $(id), out = $(id + "O"); const upd = () => { out.textContent = fmt(+el.value); apply(+el.value); };
+  el.addEventListener("input", upd); upd();
+}
+bindRange("noise", v => v + " dBFS", v => S.noise = v);
+bindRange("avg", v => v === 1 ? "ללא" : "×" + v, v => S.avgN = v);
+bindRange("ref", v => v + " dB", v => S.ref = v);
+bindRange("range", v => v + " dB", v => S.range = v);
+
+function setFc(mhz) { S.fc = mhz * MHz; $("fc").value = (+mhz).toFixed(3); if (Math.abs(S.chF - S.fc) > S.fs / 2) S.chF = S.fc; needReset = true; }
+$("fc").addEventListener("change", e => { if (+e.target.value > 0) setFc(+e.target.value); });
+$("tuneDown").addEventListener("click", () => setFc(S.fc / MHz - 1));
+$("tuneUp").addEventListener("click", () => setFc(S.fc / MHz + 1));
+$("tuneToCh").addEventListener("click", () => setFc(S.chF / MHz));
+$("fs").addEventListener("change", e => { S.fs = +e.target.value; needReset = true; });
+$("dc").addEventListener("change", e => { S.dc = e.target.checked; needReset = true; });
+$("iq").addEventListener("change", e => { S.iq = e.target.checked; needReset = true; });
+$("N").addEventListener("change", e => { S.N = +e.target.value; alloc(); });
+$("win").addEventListener("change", e => { S.win = e.target.value; alloc(); });
+$("hold").addEventListener("change", e => { S.hold = e.target.checked; needReset = true; });
+$("chbw").addEventListener("input", e => { if (+e.target.value > 0) S.chBW = +e.target.value * 1e3; });
+$("span").addEventListener("change", e => S.spanDiv = +e.target.value);
+$("resetBtn").addEventListener("click", () => needReset = true);
+$("runBtn").addEventListener("click", e => {
+  S.running = !S.running; e.target.classList.toggle("on", S.running); e.target.textContent = S.running ? "פעיל" : "מוקפא";
+});
+
+function loadScene(key) {
+  S.source = key; const sc = SCENES[key];
+  $("sceneInfo").innerHTML = sc.info;
+  const isFile = key === "file";
+  $("fileBox").classList.toggle("hidden", !isFile);
+  $("tuneBox").classList.toggle("hidden", isFile);
+  $("impBox").classList.toggle("hidden", isFile);
+  if (isFile) { if (F.file) applyFileParams(); return; }
+  $("srcNote").textContent = "כל הסצנות מסומלצות. לאותות אמיתיים בחר \"קובץ IQ אמיתי\".";
+  signals = sc.make();
+  S.t = 0; S.fs = +$("fs").value;
+  $("noise").value = sc.noise; $("noise").dispatchEvent(new Event("input"));
+  $("chbw").value = sc.chbw; S.chBW = sc.chbw * 1e3;
+  setFc(sc.fc);
+  S.chF = key === "fm" ? 99.6 * MHz : key === "air" ? 120.5 * MHz : key === "ism" ? 433.375 * MHz : 1090 * MHz;
+}
+$("source").addEventListener("change", e => loadScene(e.target.value));
+$("file").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { await openFile(f); } catch (err) { F.err = err.message; F.file = null; }
+});
+for (const id of ["ffc", "ffs"]) $(id).addEventListener("change", () => { if (F.file) applyFileParams(); });
+
+const setCursor = e => { const r = specC.getBoundingClientRect(); cursor = e.clientX - r.left; };
+specC.addEventListener("pointermove", setCursor);
+specC.addEventListener("pointerleave", () => cursor = null);
+specC.addEventListener("pointerdown", e => {
+  setCursor(e);
+  const px = cursor * dpr - PADL * dpr, W = specC.width - PADL * dpr;
+  if (px >= 0 && px <= W) S.chF = x2f(px, W);
+});
+
+alloc();
+resize();
+loadScene("fm");
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,29 @@
+name: chip-verification
+on:
+  push:
+    paths: ["chip-verification/**", ".github/workflows/chip-verification.yml"]
+  pull_request:
+    paths: ["chip-verification/**"]
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: chip-verification
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: sudo apt-get update && sudo apt-get install -y iverilog
+      - run: pip install "cocotb>=2.0,<3" pytest
+      - name: Regression on clean RTL
+        run: python3 run_tests.py
+      - name: Mutation testing (all injected bugs must be caught)
+        run: python3 run_mutants.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verification-reports
+          path: |
+            chip-verification/results/
+            chip-verification/coverage/

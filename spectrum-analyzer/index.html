@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מנתח ספקטרום</title>
+<style>
+  :root {
+    --bg: #0b0f14;
+    --panel: #121821;
+    --line: #223041;
+    --text: #d8e1ea;
+    --muted: #8796a8;
+    --accent: #3ee08f;
+    --hold: #ffb347;
+    --cursor: #6cc4ff;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, "Segoe UI", Arial, sans-serif; }
+  header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+           padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  header h1 { font-size: 18px; margin: 0; }
+  header .sub { color: var(--muted); font-size: 13px; }
+  header .btns { margin-inline-start: auto; display: flex; gap: 8px; }
+  button { background: #1b2532; color: var(--text); border: 1px solid var(--line);
+           border-radius: 6px; padding: 6px 12px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.on { background: var(--accent); color: #04140b; border-color: var(--accent); }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 12px; padding: 12px 16px; }
+  @media (max-width: 900px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+
+  .plots { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .plot { position: relative; background: #05080b; border: 1px solid var(--line);
+          border-radius: 6px; overflow: hidden; }
+  .plot .tag { position: absolute; top: 4px; inset-inline-start: 8px; font-size: 11px;
+               color: var(--muted); pointer-events: none; }
+  canvas { display: block; width: 100%; direction: ltr; touch-action: none; }
+  #spec  { height: min(50vh, 440px); }
+  #wf    { height: min(22vh, 180px); }
+  #scope { height: 110px; }
+
+  .readout { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+             gap: 6px; }
+  .m { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+  .m .k { color: var(--muted); font-size: 11px; }
+  .m .v { font: 600 16px/1.3 ui-monospace, Menlo, Consolas, monospace; direction: ltr;
+          text-align: right; font-variant-numeric: tabular-nums; }
+
+  aside { display: flex; flex-direction: column; gap: 10px; }
+  fieldset { background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+             margin: 0; padding: 8px 12px 12px; }
+  legend { padding: 0 6px; color: var(--accent); font-weight: 600; }
+  .row { display: grid; grid-template-columns: 110px minmax(0, 1fr); align-items: center;
+         gap: 8px; margin-top: 8px; }
+  .row label { color: var(--muted); font-size: 13px; }
+  select, input[type=number] { width: 100%; background: #0b1118; color: var(--text);
+         border: 1px solid var(--line); border-radius: 5px; padding: 5px 6px; font: inherit; }
+  input[type=number] { direction: ltr; text-align: right; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .rv { display: flex; gap: 6px; align-items: center; }
+  .rv output { min-width: 64px; font: 12px ui-monospace, monospace; direction: ltr; text-align: left; color: var(--text); }
+  .check { display: flex; align-items: center; gap: 6px; margin-top: 8px; color: var(--muted); }
+  .hidden { display: none !important; }
+  .note { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 600; }
+  details p { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>מנתח ספקטרום</h1>
+  <span class="sub">FFT · חלונות · מיצוע · THD / SNR / ENOB</span>
+  <div class="btns">
+    <button id="runBtn" class="on">פעיל</button>
+    <button id="resetBtn">איפוס מיצוע</button>
+  </div>
+</header>
+
+<div class="layout">
+  <main class="plots">
+    <div class="plot"><canvas id="spec"></canvas><span class="tag">ספקטרום</span></div>
+    <div class="plot"><canvas id="wf"></canvas><span class="tag">מפל (ספקטרוגרמה)</span></div>
+    <div class="plot"><canvas id="scope"></canvas><span class="tag">אות בזמן</span></div>
+    <div class="readout">
+      <div class="m"><div class="k">תדר יסוד</div><div class="v" id="mF">—</div></div>
+      <div class="m"><div class="k">רמת יסוד</div><div class="v" id="mL">—</div></div>
+      <div class="m"><div class="k">THD</div><div class="v" id="mTHD">—</div></div>
+      <div class="m"><div class="k">SNR</div><div class="v" id="mSNR">—</div></div>
+      <div class="m"><div class="k">SINAD</div><div class="v" id="mSINAD">—</div></div>
+      <div class="m"><div class="k">ENOB</div><div class="v" id="mENOB">—</div></div>
+      <div class="m"><div class="k">רצפת רעש (חציון)</div><div class="v" id="mNF">—</div></div>
+      <div class="m"><div class="k">RBW</div><div class="v" id="mRBW">—</div></div>
+      <div class="m"><div class="k">רזולוציית bin</div><div class="v" id="mDF">—</div></div>
+      <div class="m"><div class="k">זמן חישוב FFT</div><div class="v" id="mT">—</div></div>
+    </div>
+  </main>
+
+  <aside>
+    <fieldset>
+      <legend>מקור אות</legend>
+      <div class="row"><label for="source">מקור</label>
+        <select id="source">
+          <option value="gen">מחולל אותות מובנה</option>
+          <option value="mic">מיקרופון</option>
+          <option value="file">קובץ אודיו</option>
+        </select></div>
+      <div class="row hidden" id="fileRow"><label for="file">קובץ</label>
+        <input type="file" id="file" accept="audio/*"></div>
+      <div class="note" id="srcNote"></div>
+    </fieldset>
+
+    <fieldset id="genBox">
+      <legend>מחולל אותות</legend>
+      <div class="row"><label for="wave">צורת גל</label>
+        <select id="wave">
+          <option value="sine">סינוס</option>
+          <option value="square">ריבוע</option>
+          <option value="triangle">משולש</option>
+          <option value="saw">שן מסור</option>
+          <option value="two">שני טונים (IMD)</option>
+          <option value="am">אפנון AM</option>
+          <option value="chirp">סריקת תדר (chirp)</option>
+          <option value="noise">רעש לבן</option>
+        </select></div>
+      <div class="row"><label for="freq">תדר [Hz]</label><input type="number" id="freq" value="997" min="1" step="1"></div>
+      <div class="row" id="f2Row"><label for="freq2" id="f2Label">תדר שני [Hz]</label><input type="number" id="freq2" value="1200" min="1" step="1"></div>
+      <div class="row"><label for="amp">אמפליטודה</label>
+        <div class="rv"><input type="range" id="amp" min="-80" max="0" step="1" value="-3"><output id="ampO"></output></div></div>
+      <div class="row"><label for="noise">רמת רעש</label>
+        <div class="rv"><input type="range" id="noise" min="-160" max="-20" step="1" value="-160"><output id="noiseO"></output></div></div>
+      <div class="row"><label for="bits">ADC [ביטים]</label>
+        <div class="rv"><input type="range" id="bits" min="4" max="24" step="1" value="16"><output id="bitsO"></output></div></div>
+      <div class="row"><label for="dist">עיוות (רוויה)</label>
+        <div class="rv"><input type="range" id="dist" min="0" max="100" step="1" value="0"><output id="distO"></output></div></div>
+      <div class="note">ה-ADC מדמה קוונטיזציה: בסינוס מלא צפוי ENOB ≈ מספר הביטים, ו-SNR ≈ 6.02·N + 1.76 dB.</div>
+    </fieldset>
+
+    <fieldset>
+      <legend>ניתוח</legend>
+      <div class="row"><label for="N">גודל FFT</label>
+        <select id="N">
+          <option>512</option><option>1024</option><option>2048</option><option>4096</option>
+          <option selected>8192</option><option>16384</option><option>32768</option>
+        </select></div>
+      <div class="row"><label for="win">חלון</label>
+        <select id="win">
+          <option value="rect">מלבני</option>
+          <option value="hann" selected>Hann</option>
+          <option value="hamming">Hamming</option>
+          <option value="blackman">Blackman</option>
+          <option value="bh">Blackman-Harris</option>
+          <option value="flattop">Flat-top</option>
+        </select></div>
+      <div class="row"><label for="avg">מיצוע</label>
+        <div class="rv"><input type="range" id="avg" min="1" max="64" step="1" value="4"><output id="avgO"></output></div></div>
+      <label class="check"><input type="checkbox" id="hold"> החזקת מקסימום (Max hold)</label>
+      <label class="check"><input type="checkbox" id="harm" checked> סימון הרמוניות</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>תצוגה</legend>
+      <div class="row"><label for="fStart">תדר התחלה</label><input type="number" id="fStart" value="20" min="0"></div>
+      <div class="row"><label for="fStop">תדר סיום</label><input type="number" id="fStop" value="24000" min="1"></div>
+      <label class="check"><input type="checkbox" id="logF" checked> ציר תדר לוגריתמי</label>
+      <div class="row"><label for="ref">רמת ייחוס</label>
+        <div class="rv"><input type="range" id="ref" min="-60" max="20" step="5" value="0"><output id="refO"></output></div></div>
+      <div class="row"><label for="range">טווח דינמי</label>
+        <div class="rv"><input type="range" id="range" min="40" max="200" step="10" value="160"><output id="rangeO"></output></div></div>
+    </fieldset>
+
+    <details>
+      <summary>איך זה עובד</summary>
+      <p>בכל פריים נלקחים N דגימות (מהמחולל, מהמיקרופון או מקובץ), מוכפלות בחלון, ועוברות FFT מסוג radix-2 שמומש כאן מאפס. הספקטרום מכויל כך שסינוס באמפליטודה מלאה מוצג ב-0 dBFS, והמיצוע נעשה על ההספק.</p>
+      <p>תדר היסוד מוערך בעזרת אינטרפולציה פרבולית סביב ה-bin החזק ביותר. ההספק של היסוד ושל כל הרמוניה (עד העשירית) נסכם על פני רוחב האונה הראשית של החלון. מהם מחושבים THD, SNR, SINAD ו-ENOB = (SINAD − 1.76) / 6.02.</p>
+      <p>RBW = ENBW · fs / N, כאשר ENBW הוא רוחב הפס השקול לרעש של החלון.</p>
+    </details>
+  </aside>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+
+/* ------------------------------------------------------------------
+   FFT: iterative radix-2 Cooley-Tukey, in place. Tables cached per N.
+   ------------------------------------------------------------------ */
+const fftTables = {};
+function tables(N) {
+  if (fftTables[N]) return fftTables[N];
+  const bits = Math.log2(N), rev = new Uint32Array(N);
+  for (let i = 0; i < N; i++) {
+    let r = 0, x = i;
+    for (let b = 0; b < bits; b++) { r = (r << 1) | (x & 1); x >>= 1; }
+    rev[i] = r;
+  }
+  const cos = new Float64Array(N / 2), sin = new Float64Array(N / 2);
+  for (let k = 0; k < N / 2; k++) { cos[k] = Math.cos(2 * Math.PI * k / N); sin[k] = Math.sin(2 * Math.PI * k / N); }
+  return (fftTables[N] = { rev, cos, sin });
+}
+function fft(re, im) {
+  const N = re.length, { rev, cos, sin } = tables(N);
+  for (let i = 0; i < N; i++) {
+    const j = rev[i];
+    if (j > i) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; }
+  }
+  for (let size = 2; size <= N; size <<= 1) {
+    const half = size >> 1, step = N / size;
+    for (let i = 0; i < N; i += size) {
+      for (let j = 0, k = 0; j < half; j++, k += step) {
+        const a = i + j, b = a + half;
+        // multiply by twiddle W = e^{-j 2π k / N}
+        const tr = re[b] * cos[k] + im[b] * sin[k];
+        const ti = im[b] * cos[k] - re[b] * sin[k];
+        re[b] = re[a] - tr; im[b] = im[a] - ti;
+        re[a] += tr;        im[a] += ti;
+      }
+    }
+  }
+}
+
+/* ------------------------------------------------------------------
+   Windows. Returns coefficients plus the sums needed for calibration:
+   s1 = Σw (coherent gain · N), s2 = Σw² (for power / ENBW).
+   lobe = main-lobe half width in bins, used when summing tone power.
+   ------------------------------------------------------------------ */
+const WINDOWS = {
+  rect:     { c: [1], lobe: 1 },
+  hann:     { c: [0.5, 0.5], lobe: 2 },
+  hamming:  { c: [0.54, 0.46], lobe: 2 },
+  blackman: { c: [0.42, 0.5, 0.08], lobe: 3 },
+  bh:       { c: [0.35875, 0.48829, 0.14128, 0.01168], lobe: 4 },
+  flattop:  { c: [0.21557895, 0.41663158, 0.277263158, 0.083578947, 0.006947368], lobe: 5 },
+  // 7-term Blackman-Harris (sidelobes ≈ −180 dB): used only for measurements, so that
+  // leakage never masquerades as noise regardless of the display window.
+  bh7:      { c: [0.27105140069342, 0.43329793923448, 0.21812299954311, 0.06592544638803,
+                  0.01081174209837, 0.00077658482522, 0.00001388721735], lobe: 10 },
+};
+function makeWindow(type, N) {
+  const { c, lobe } = WINDOWS[type], w = new Float64Array(N);
+  let s1 = 0, s2 = 0;
+  for (let n = 0; n < N; n++) {
+    let v = 0;
+    for (let m = 0; m < c.length; m++) v += (m % 2 ? -1 : 1) * c[m] * Math.cos(2 * Math.PI * m * n / N);
+    w[n] = v; s1 += v; s2 += v * v;
+  }
+  return { w, s1, s2, lobe, enbw: N * s2 / (s1 * s1) };
+}
+
+/* ------------------------------------------------------------------
+   State
+   ------------------------------------------------------------------ */
+const S = {
+  source: "gen", fs: 48000, N: 8192, win: "hann", avgN: 4, hold: false, harm: true,
+  fStart: 20, fStop: 24000, logF: true, ref: 0, range: 160, running: true,
+};
+const G = { wave: "sine", freq: 997, freq2: 1200, amp: -3, noise: -160, bits: 16, dist: 0, t: 0 };
+
+let win, mwin, re, im, avgP, maxP, mP, dB, holdDB, lastX, needReset = true;
+function alloc() {
+  const N = S.N;
+  win = makeWindow(S.win, N);
+  mwin = makeWindow("bh7", N);
+  mP = new Float64Array(N / 2 + 1);
+  re = new Float64Array(N); im = new Float64Array(N);
+  avgP = new Float64Array(N / 2 + 1); maxP = new Float64Array(N / 2 + 1);
+  dB = new Float64Array(N / 2 + 1); holdDB = new Float64Array(N / 2 + 1);
+  needReset = true;
+}
+
+/* ------------------------------------------------------------------
+   Signal generator (runs entirely in JS — no hardware needed)
+   ------------------------------------------------------------------ */
+function gauss() {
+  let u = 0, v = 0;
+  while (u === 0) u = Math.random();
+  v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function generate(N, fs, dt) {
+  const x = new Float64Array(N);
+  const A = Math.pow(10, G.amp / 20), sig = Math.pow(10, G.noise / 20);
+  const f = G.freq, f2 = G.freq2, TAU = 2 * Math.PI;
+  const t0 = G.t;
+  const g = G.dist > 0 ? 0.05 + G.dist / 12 : 0, tg = g ? Math.tanh(g) : 1, even = G.dist / 2000;
+  const q = G.bits < 24 ? 2 / Math.pow(2, G.bits) : 0;
+  const T = 2, fa = 20, fb = fs / 2, kk = fb / fa;           // chirp: 20 Hz → fs/2 in 2 s
+  for (let n = 0; n < N; n++) {
+    const t = t0 + n / fs;
+    let v;
+    switch (G.wave) {
+      case "sine":     v = Math.sin(TAU * f * t); break;
+      case "square":   v = Math.sin(TAU * f * t) >= 0 ? 1 : -1; break;
+      case "triangle": { const p = (f * t) % 1; v = 4 * Math.abs(p - 0.5) - 1; break; }
+      case "saw":      v = 2 * ((f * t) % 1) - 1; break;
+      case "two":      v = 0.5 * (Math.sin(TAU * f * t) + Math.sin(TAU * f2 * t)); break;
+      case "am":       v = (1 + 0.5 * Math.sin(TAU * f2 * t)) * Math.sin(TAU * f * t) / 1.5; break;
+      case "chirp": {  const tau = t % T;
+                       v = Math.sin(TAU * fa * T / Math.log(kk) * (Math.pow(kk, tau / T) - 1)); break; }
+      case "noise":    v = gauss() * 0.3; break;
+    }
+    v = A * v + (sig > 1e-8 ? sig * gauss() : 0);
+    if (g) v = Math.tanh(g * v) / tg + even * v * v;     // soft saturation + even-order term
+    if (q) { v = Math.round(v / q) * q; }                  // ADC quantization
+    x[n] = v > 1 ? 1 : v < -1 ? -1 : v;
+  }
+  G.t += dt;
+  return x;
+}
+
+/* ------------------------------------------------------------------
+   Audio input: microphone or file, read through an AnalyserNode
+   (used only as a sample buffer — the FFT is ours).
+   ------------------------------------------------------------------ */
+let actx = null, analyser = null, micStream = null, fileNode = null, micBuf = new Float32Array(32768);
+async function ensureCtx() {
+  if (!actx) {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = actx.createAnalyser();
+    analyser.fftSize = 32768;
+  }
+  if (actx.state === "suspended") await actx.resume();
+}
+function stopInputs() {
+  if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null; }
+  if (fileNode) { try { fileNode.stop(); } catch (e) {} fileNode.disconnect(); fileNode = null; }
+}
+async function startMic() {
+  await ensureCtx();
+  micStream = await navigator.mediaDevices.getUserMedia({
+    audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
+  actx.createMediaStreamSource(micStream).connect(analyser);
+  S.fs = actx.sampleRate;
+}
+async function startFile(file) {
+  await ensureCtx();
+  const buf = await actx.decodeAudioData(await file.arrayBuffer());
+  fileNode = actx.createBufferSource();
+  fileNode.buffer = buf; fileNode.loop = true;
+  fileNode.connect(analyser); fileNode.connect(actx.destination);
+  fileNode.start();
+  S.fs = actx.sampleRate;
+}
+function acquire(dt) {
+  if (S.source === "gen") { S.fs = 48000; return generate(S.N, S.fs, dt); }
+  if (!analyser) return new Float64Array(S.N);
+  analyser.getFloatTimeDomainData(micBuf);
+  return Float64Array.from(micBuf.subarray(32768 - S.N));
+}
+
+/* ------------------------------------------------------------------
+   Spectrum + measurements
+   ------------------------------------------------------------------ */
+let meas = null, fftMs = 0;
+function process(x) {
+  const N = S.N, w = win.w, half = N / 2;
+  const t0 = performance.now();
+  for (let n = 0; n < N; n++) { re[n] = x[n] * w[n]; im[n] = 0; }
+  fft(re, im);
+  fftMs = 0.8 * fftMs + 0.2 * (performance.now() - t0);
+
+  const a = needReset ? 1 : 1 / S.avgN;
+  for (let k = 0; k <= half; k++) {
+    const p = re[k] * re[k] + im[k] * im[k];
+    avgP[k] += a * (p - avgP[k]);
+    maxP[k] = needReset ? p : Math.max(maxP[k], p);
+  }
+  // second FFT with the measurement window
+  const mw = mwin.w;
+  for (let n = 0; n < N; n++) { re[n] = x[n] * mw[n]; im[n] = 0; }
+  fft(re, im);
+  for (let k = 0; k <= half; k++) mP[k] += a * (re[k] * re[k] + im[k] * im[k] - mP[k]);
+  needReset = false;
+
+  // Calibrate so a full-scale sine reads 0 dBFS at its peak bin.
+  const cal = 4 / (win.s1 * win.s1);
+  for (let k = 0; k <= half; k++) {
+    dB[k] = 10 * Math.log10(avgP[k] * cal + 1e-30);
+    holdDB[k] = 10 * Math.log10(maxP[k] * cal + 1e-30);
+  }
+  meas = measure();
+}
+
+function bandPower(P, center, L, half) {
+  let s = 0;
+  const lo = Math.max(1, Math.round(center) - L), hi = Math.min(half - 1, Math.round(center) + L);
+  for (let k = lo; k <= hi; k++) s += P[k];
+  return s;
+}
+function measure() {
+  const N = S.N, half = N / 2, L = mwin.lobe, P = mP, fs = S.fs;
+  // fundamental = strongest bin above the DC skirt
+  let k0 = L + 1;
+  for (let k = L + 1; k < half; k++) if (P[k] > P[k0]) k0 = k;
+  const lg = k => 10 * Math.log10(P[k] + 1e-300);
+  const a = lg(k0 - 1), b = lg(k0), c = lg(k0 + 1);
+  const den = a - 2 * b + c, delta = den !== 0 ? Math.max(-0.5, Math.min(0.5, 0.5 * (a - c) / den)) : 0;
+  const kf = k0 + delta, f0 = kf * fs / N;
+
+  let total = 0;
+  for (let k = L + 1; k < half; k++) total += P[k];
+  const P1 = bandPower(P, kf, L, half);
+  let Ph = 0;
+  const harmonics = [];
+  for (let h = 2; h <= 10; h++) {
+    const kc = kf * h;
+    if (kc > half - L - 1) break;
+    Ph += bandPower(P, kc, L, half);
+    harmonics.push(kc * fs / N);
+  }
+  const noise = Math.max(total - P1 - Ph, 1e-30);
+  // Band power → sine amplitude via Parseval: Σ|X|² ≈ (A/2)²·N·Σw²
+  const level = 10 * Math.log10(4 * P1 / (N * mwin.s2) + 1e-30);
+  const sinad = 10 * Math.log10(P1 / Math.max(total - P1, 1e-30));
+  const sorted = Array.from(dB.subarray(1, half)).sort((x, y) => x - y);
+  return {
+    f0, level, harmonics, k0,
+    thd: 10 * Math.log10(Ph / P1 + 1e-30), thdPct: 100 * Math.sqrt(Ph / P1),
+    snr: 10 * Math.log10(P1 / noise), sinad, enob: (sinad - 1.76) / 6.02,
+    floor: sorted[sorted.length >> 1],
+    rbw: win.enbw * fs / N, df: fs / N,
+  };
+}
+
+/* ------------------------------------------------------------------
+   Drawing
+   ------------------------------------------------------------------ */
+const specC = $("spec"), wfC = $("wf"), scC = $("scope");
+const sctx = specC.getContext("2d"), wctx = wfC.getContext("2d"), cctx = scC.getContext("2d");
+let dpr = 1, colDb = new Float64Array(0), colHold = new Float64Array(0), cursor = null;
+const PADL = 44, PADB = 20;   // CSS px, scaled by dpr when drawing
+
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  for (const c of [specC, wfC, scC]) {
+    c.width = Math.round(c.clientWidth * dpr);
+    c.height = Math.round(c.clientHeight * dpr);
+  }
+  wctx.fillStyle = "#000"; wctx.fillRect(0, 0, wfC.width, wfC.height);
+}
+window.addEventListener("resize", resize);
+
+function fRange() {
+  const ny = S.fs / 2;
+  let a = Math.max(0, Math.min(S.fStart, ny)), b = Math.max(1, Math.min(S.fStop, ny));
+  if (S.logF) a = Math.max(a, S.fs / S.N, 1);
+  if (b <= a) b = Math.min(ny, a * 2 + 1);
+  return [a, b];
+}
+function f2x(f, W) {
+  const [a, b] = fRange();
+  return S.logF ? Math.log(f / a) / Math.log(b / a) * W : (f - a) / (b - a) * W;
+}
+function x2f(x, W) {
+  const [a, b] = fRange();
+  return S.logF ? a * Math.pow(b / a, x / W) : a + (b - a) * x / W;
+}
+const fmtF = f => f >= 1000 ? (f / 1000).toFixed(f >= 10000 ? 1 : 2).replace(/\.?0+$/, "") + "k" : Math.round(f) + "";
+
+// Reduce bins to one value per pixel column (peak-detect when several bins share a column).
+function columns(src, out, W) {
+  const N = S.N, fs = S.fs, half = N / 2;
+  for (let px = 0; px < W; px++) {
+    const ka = x2f(px, W) * N / fs, kb = x2f(px + 1, W) * N / fs;
+    const i0 = Math.ceil(ka), i1 = Math.min(half, Math.floor(kb));
+    if (i1 >= i0) {
+      let m = -Infinity;
+      for (let k = i0; k <= i1; k++) if (src[k] > m) m = src[k];
+      out[px] = m;
+    } else {
+      const kc = (ka + kb) / 2, k = Math.min(half - 1, Math.floor(kc)), t = kc - k;
+      out[px] = src[k] * (1 - t) + src[k + 1] * t;
+    }
+  }
+}
+
+function drawSpectrum() {
+  const c = sctx, Wt = specC.width, Ht = specC.height;
+  const L = PADL * dpr, B = PADB * dpr, W = Wt - L, H = Ht - B;
+  c.fillStyle = "#05080b"; c.fillRect(0, 0, Wt, Ht);
+  c.font = `${11 * dpr}px ui-monospace, monospace`;
+  const y = v => (S.ref - v) / S.range * H;
+
+  // grid: dB
+  const step = S.range > 100 ? 20 : 10;
+  c.strokeStyle = "#17222e"; c.fillStyle = "#6f7f92"; c.lineWidth = 1;
+  c.textAlign = "right"; c.textBaseline = "middle";
+  for (let v = Math.floor(S.ref / step) * step; v >= S.ref - S.range; v -= step) {
+    const yy = Math.round(y(v)) + 0.5;
+    c.beginPath(); c.moveTo(L, yy); c.lineTo(Wt, yy); c.stroke();
+    c.fillText(v, L - 4 * dpr, yy);
+  }
+  // grid: frequency
+  const [fa, fb] = fRange();
+  c.textAlign = "center"; c.textBaseline = "top";
+  const ticks = [];
+  if (S.logF) {
+    for (let d = Math.pow(10, Math.floor(Math.log10(fa))); d <= fb; d *= 10)
+      for (const m of [1, 2, 5]) { const f = d * m; if (f >= fa && f <= fb) ticks.push(f); }
+  } else {
+    const raw = (fb - fa) / 8, p = Math.pow(10, Math.floor(Math.log10(raw)));
+    const st = [1, 2, 5, 10].map(m => m * p).find(s => s >= raw);
+    for (let f = Math.ceil(fa / st) * st; f <= fb; f += st) ticks.push(f);
+  }
+  for (const f of ticks) {
+    const xx = Math.round(L + f2x(f, W)) + 0.5;
+    c.beginPath(); c.moveTo(xx, 0); c.lineTo(xx, H); c.stroke();
+    c.fillText(fmtF(f), xx, H + 4 * dpr);
+  }
+
+  if (colDb.length !== W) { colDb = new Float64Array(W); colHold = new Float64Array(W); }
+  columns(dB, colDb, W);
+
+  c.save(); c.beginPath(); c.rect(L, 0, W, H); c.clip();
+  if (S.hold) {
+    columns(holdDB, colHold, W);
+    c.strokeStyle = "rgba(255,179,71,.8)"; c.lineWidth = 1 * dpr; c.beginPath();
+    for (let px = 0; px < W; px++) c.lineTo(L + px, y(colHold[px]));
+    c.stroke();
+  }
+  // filled trace
+  const grad = c.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, "rgba(62,224,143,.35)"); grad.addColorStop(1, "rgba(62,224,143,0)");
+  c.beginPath(); c.moveTo(L, H);
+  for (let px = 0; px < W; px++) c.lineTo(L + px, y(colDb[px]));
+  c.lineTo(L + W, H); c.closePath(); c.fillStyle = grad; c.fill();
+  c.strokeStyle = "#3ee08f"; c.lineWidth = 1.3 * dpr; c.beginPath();
+  for (let px = 0; px < W; px++) c.lineTo(L + px, y(colDb[px]));
+  c.stroke();
+
+  // markers: fundamental + harmonics
+  if (meas && !(S.source === "gen" && (G.wave === "noise" || G.wave === "chirp"))) {
+    const mark = (f, label, col) => {
+      if (f < fa || f > fb) return;
+      const px = Math.max(0, Math.min(W - 1, Math.round(f2x(f, W)))), yy = y(colDb[px]);
+      c.fillStyle = col;
+      c.beginPath(); c.moveTo(L + px, yy - 3 * dpr); c.lineTo(L + px - 5 * dpr, yy - 12 * dpr);
+      c.lineTo(L + px + 5 * dpr, yy - 12 * dpr); c.fill();
+      c.textAlign = "center"; c.textBaseline = "bottom"; c.fillText(label, L + px, yy - 14 * dpr);
+    };
+    if (S.harm) meas.harmonics.slice(0, 6).forEach((f, i) => mark(f, "H" + (i + 2), "#ffb347"));
+    mark(meas.f0, fmtF(meas.f0) + "Hz " + meas.level.toFixed(1) + "dB", "#ffffff");
+  }
+
+  // cursor readout
+  if (cursor) {
+    const px = Math.round(cursor * dpr - L);
+    if (px >= 0 && px < W) {
+      const f = x2f(px, W), v = colDb[px];
+      c.strokeStyle = "rgba(108,196,255,.7)"; c.lineWidth = 1;
+      c.beginPath(); c.moveTo(L + px + 0.5, 0); c.lineTo(L + px + 0.5, H); c.stroke();
+      const txt = `${f < 1000 ? f.toFixed(1) : (f / 1000).toFixed(3) + "k"} Hz  ${v.toFixed(1)} dBFS`;
+      c.font = `${12 * dpr}px ui-monospace, monospace`;
+      const tw = c.measureText(txt).width + 10 * dpr;
+      const bx = Math.min(L + px + 8 * dpr, Wt - tw - 2);
+      c.fillStyle = "rgba(10,20,30,.9)"; c.fillRect(bx, 6 * dpr, tw, 20 * dpr);
+      c.fillStyle = "#6cc4ff"; c.textAlign = "left"; c.textBaseline = "middle";
+      c.fillText(txt, bx + 5 * dpr, 16 * dpr);
+    }
+  }
+  c.restore();
+  c.fillStyle = "#6f7f92"; c.textAlign = "left"; c.textBaseline = "top";
+  c.font = `${10 * dpr}px ui-monospace, monospace`; c.fillText("dBFS", 2 * dpr, 2 * dpr);
+}
+
+// inferno-like colormap LUT
+const LUT = (() => {
+  const st = [[0, 0, 0, 4], [.2, 40, 11, 84], [.4, 120, 28, 109], [.6, 200, 63, 75], [.8, 249, 140, 10], [1, 252, 255, 164]];
+  const out = new Uint8Array(256 * 3);
+  for (let i = 0; i < 256; i++) {
+    const t = i / 255; let j = 0;
+    while (j < st.length - 2 && t > st[j + 1][0]) j++;
+    const [t0, r0, g0, b0] = st[j], [t1, r1, g1, b1] = st[j + 1], u = (t - t0) / (t1 - t0);
+    out[i * 3] = r0 + (r1 - r0) * u; out[i * 3 + 1] = g0 + (g1 - g0) * u; out[i * 3 + 2] = b0 + (b1 - b0) * u;
+  }
+  return out;
+})();
+let wfRow = null;
+function drawWaterfall() {
+  const Wt = wfC.width, L = PADL * dpr, W = colDb.length;
+  if (!W) return;
+  wctx.drawImage(wfC, 0, 1);
+  if (!wfRow || wfRow.width !== Wt) wfRow = wctx.createImageData(Wt, 1);
+  const d = wfRow.data;
+  for (let x = 0; x < Wt; x++) {
+    let i = 0;
+    if (x >= L) {
+      const v = colDb[Math.min(W - 1, Math.floor((x - L) * W / (Wt - L)))];
+      i = Math.max(0, Math.min(255, Math.round((v - (S.ref - S.range)) / S.range * 255)));
+    }
+    d[x * 4] = LUT[i * 3]; d[x * 4 + 1] = LUT[i * 3 + 1]; d[x * 4 + 2] = LUT[i * 3 + 2]; d[x * 4 + 3] = 255;
+  }
+  wctx.putImageData(wfRow, 0, 0);
+}
+
+function drawScope(x) {
+  const c = cctx, W = scC.width, H = scC.height, L = PADL * dpr;
+  c.fillStyle = "#05080b"; c.fillRect(0, 0, W, H);
+  c.strokeStyle = "#17222e"; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(L, H / 2 + 0.5); c.lineTo(W, H / 2 + 0.5); c.stroke();
+  if (!x) return;
+  const span = Math.min(x.length >> 1, Math.round(S.fs * 0.01));   // 10 ms window
+  let s = 0;                                                         // rising zero-crossing trigger
+  for (let i = 1; i < x.length - span; i++) if (x[i - 1] < 0 && x[i] >= 0) { s = i; break; }
+  c.strokeStyle = "#6cc4ff"; c.lineWidth = 1.2 * dpr; c.beginPath();
+  for (let i = 0; i < span; i++) c.lineTo(L + i * (W - L) / span, H / 2 - x[s + i] * (H / 2 - 4 * dpr));
+  c.stroke();
+  c.fillStyle = "#6f7f92"; c.font = `${10 * dpr}px ui-monospace, monospace`;
+  c.textAlign = "left"; c.textBaseline = "top"; c.fillText("10 ms", 2 * dpr, 2 * dpr);
+}
+
+let lastUI = 0;
+function updateReadout(now) {
+  if (!meas || now - lastUI < 200) return;
+  lastUI = now;
+  const m = meas, f = (v, d, u) => isFinite(v) ? v.toFixed(d) + u : "—";
+  $("mNF").textContent = f(m.floor, 1, " dBFS");
+  $("mRBW").textContent = f(m.rbw, 2, " Hz");
+  $("mDF").textContent = f(m.df, 2, " Hz");
+  $("mT").textContent = f(fftMs, 2, " ms");
+  if (S.source === "gen" && (G.wave === "noise" || G.wave === "chirp")) {
+    for (const id of ["mF", "mL", "mTHD", "mSNR", "mSINAD", "mENOB"]) $(id).textContent = "—";
+    return;   // tone measurements are meaningless without a dominant tone
+  }
+  $("mF").textContent = m.f0 < 1000 ? f(m.f0, 2, " Hz") : f(m.f0 / 1000, 4, " kHz");
+  $("mL").textContent = f(m.level, 2, " dBFS");
+  $("mTHD").textContent = `${f(m.thd, 1, " dB")} (${m.thdPct < 0.01 ? m.thdPct.toExponential(1) : m.thdPct.toFixed(3)}%)`;
+  $("mSNR").textContent = f(m.snr, 1, " dB");
+  $("mSINAD").textContent = f(m.sinad, 1, " dB");
+  $("mENOB").textContent = f(m.enob, 2, " bit");
+  $("mNF").textContent = f(m.floor, 1, " dBFS");
+  $("mRBW").textContent = f(m.rbw, 2, " Hz");
+  $("mDF").textContent = f(m.df, 2, " Hz");
+  $("mT").textContent = f(fftMs, 2, " ms");
+}
+
+/* ------------------------------------------------------------------
+   Main loop
+   ------------------------------------------------------------------ */
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  if (S.running) { lastX = acquire(dt); process(lastX); }
+  drawSpectrum();
+  if (S.running) drawWaterfall();
+  drawScope(lastX);
+  updateReadout(now);
+}
+
+/* ------------------------------------------------------------------
+   UI wiring
+   ------------------------------------------------------------------ */
+function bindRange(id, fmt, apply) {
+  const el = $(id), out = $(id + "O");
+  const upd = () => { const v = +el.value; out.textContent = fmt(v); apply(v); };
+  el.addEventListener("input", upd); upd();
+}
+bindRange("amp", v => v + " dBFS", v => G.amp = v);
+bindRange("noise", v => v <= -160 ? "כבוי" : v + " dBFS", v => G.noise = v);
+bindRange("bits", v => v >= 24 ? "אידאלי" : v + " bit", v => G.bits = v);
+bindRange("dist", v => v + "%", v => G.dist = v);
+bindRange("avg", v => v === 1 ? "ללא" : "×" + v, v => S.avgN = v);
+bindRange("ref", v => v + " dB", v => S.ref = v);
+bindRange("range", v => v + " dB", v => S.range = v);
+
+const num = (id, set) => $(id).addEventListener("input", e => { const v = +e.target.value; if (v > 0 || id === "fStart") set(v); });
+num("freq", v => G.freq = v);
+num("freq2", v => G.freq2 = v);
+num("fStart", v => S.fStart = v);
+num("fStop", v => S.fStop = v);
+
+function syncWave() {
+  G.wave = $("wave").value;
+  const show = G.wave === "two" || G.wave === "am";
+  $("f2Row").classList.toggle("hidden", !show);
+  $("f2Label").textContent = G.wave === "am" ? "תדר מאפנן [Hz]" : "תדר שני [Hz]";
+  if (G.wave === "am" && G.freq2 > G.freq) { G.freq2 = 100; $("freq2").value = 100; }
+  needReset = true;
+}
+$("wave").addEventListener("change", syncWave); syncWave();
+
+$("N").addEventListener("change", e => { S.N = +e.target.value; alloc(); });
+$("win").addEventListener("change", e => { S.win = e.target.value; alloc(); });
+$("hold").addEventListener("change", e => { S.hold = e.target.checked; needReset = true; });
+$("harm").addEventListener("change", e => S.harm = e.target.checked);
+$("logF").addEventListener("change", e => S.logF = e.target.checked);
+$("resetBtn").addEventListener("click", () => needReset = true);
+$("runBtn").addEventListener("click", e => {
+  S.running = !S.running;
+  e.target.classList.toggle("on", S.running);
+  e.target.textContent = S.running ? "פעיל" : "מוקפא";
+});
+
+const note = t => $("srcNote").textContent = t;
+$("source").addEventListener("change", async e => {
+  stopInputs();
+  S.source = e.target.value;
+  $("genBox").classList.toggle("hidden", S.source !== "gen");
+  $("fileRow").classList.toggle("hidden", S.source !== "file");
+  needReset = true; note("");
+  if (S.source === "mic") {
+    try { await startMic(); note(`מיקרופון פעיל · fs = ${S.fs} Hz`); }
+    catch (err) { note("אין גישה למיקרופון: " + err.message); $("source").value = "gen"; S.source = "gen"; $("genBox").classList.remove("hidden"); }
+  } else if (S.source === "file") {
+    note("בחר קובץ אודיו (WAV / MP3). הקובץ יתנגן בלולאה.");
+  }
+});
+$("file").addEventListener("change", async e => {
+  const f = e.target.files[0]; if (!f) return;
+  stopInputs();
+  try { await startFile(f); note(`${f.name} · fs = ${S.fs} Hz`); needReset = true; }
+  catch (err) { note("לא ניתן לפענח את הקובץ: " + err.message); }
+});
+
+const setCursor = e => { const r = specC.getBoundingClientRect(); cursor = e.clientX - r.left; };
+specC.addEventListener("pointermove", setCursor);
+specC.addEventListener("pointerdown", setCursor);
+specC.addEventListener("pointerleave", () => cursor = null);
+
+alloc();
+resize();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
