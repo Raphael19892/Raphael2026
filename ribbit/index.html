@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#23477a">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<link rel="apple-touch-icon" href="icon.svg">
+<title>סיכום הלכות ריבית</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700;900&family=Assistant:wght@400;600;700&display=swap">
+<style>
+/* Layout: a single reading column (sefer page) under a sticky ink bar; home is a table of simanim like a book's contents page. */
+:root{
+  --paper:#f7f8f6; --sheet:#ffffff; --ink:#1d2430; --muted:#5d6675; --line:#dde1e4;
+  --accent:#23477a; --accent-soft:#e6edf7; --gold:#a07a2c; --gold-soft:#f6efdf; --mark:#ffe58a;
+  --f-text:"Frank Ruhl Libre","David Libre","Times New Roman",serif;
+  --f-ui:"Assistant","Segoe UI",Arial,sans-serif;
+  --fs:1.13rem;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#12161c; --sheet:#181d25; --ink:#e7e9ec; --muted:#9aa3b0; --line:#2a313c;
+  --accent:#8fb3ec; --accent-soft:#1f2b3d; --gold:#d6b46a; --gold-soft:#2a2516; --mark:#6b5a12; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#12161c; --sheet:#181d25; --ink:#e7e9ec; --muted:#9aa3b0; --line:#2a313c;
+  --accent:#8fb3ec; --accent-soft:#1f2b3d; --gold:#d6b46a; --gold-soft:#2a2516; --mark:#6b5a12; color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{background:var(--paper);color:var(--ink)}
+body{font-family:var(--f-ui);font-size:15px;line-height:1.5;direction:rtl;margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--accent)}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible,summary:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
+.wrap{max-width:46rem;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* top bar */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:var(--accent);color:#fff}
+:root[data-theme="dark"] .bar{color:#0e1420}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .bar{color:#0e1420}}
+.bar .wrap{display:flex;align-items:center;gap:6px;min-height:52px;padding-block:6px}
+.bar h1{font-family:var(--f-text);font-weight:700;font-size:1.08rem;margin:0;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;flex:none}
+.ib:hover{background:rgba(255,255,255,.14)}
+.ib svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.ib.on svg{fill:currentColor}
+.prog{height:3px;background:var(--gold);width:0;transition:width .15s}
+
+/* tabs */
+.tabs{position:sticky;bottom:0;z-index:20;background:var(--sheet);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .wrap{display:grid;grid-template-columns:repeat(4,1fr)}
+.tab{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 0 7px;font-size:.78rem;color:var(--muted);font-weight:600}
+.tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.tab[aria-current="page"]{color:var(--accent)}
+main{min-height:calc(100vh - 120px)}
+
+/* home */
+.hero{padding-block:28px 18px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:.78rem;letter-spacing:.06em;color:var(--gold);font-weight:700}
+.hero h2{font-family:var(--f-text);font-weight:900;font-size:clamp(2rem,7vw,2.8rem);line-height:1.1;margin:.2em 0 .15em;text-wrap:balance}
+.hero p{margin:0;color:var(--muted)}
+.stats{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:.88rem;color:var(--muted)}
+.stats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.cont{margin-block:18px;display:flex;align-items:center;gap:12px;background:var(--accent-soft);border-radius:12px;padding:14px 16px;text-align:right;width:100%}
+.cont .t{flex:1;min-width:0}
+.cont small{display:block;color:var(--muted);font-size:.8rem}
+.cont strong{display:block;font-family:var(--f-text);font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cont .go{color:var(--accent);font-weight:700;flex:none}
+.row-btns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.chip{border:1px solid var(--line);background:var(--sheet);border-radius:999px;padding:6px 14px;font-size:.88rem;font-weight:600}
+.chip:hover{border-color:var(--accent);color:var(--accent)}
+.sec-h{font-size:.8rem;letter-spacing:.06em;color:var(--muted);font-weight:700;margin:22px 0 6px}
+.toc{list-style:none;margin:0;padding:0}
+.toc>li{border-bottom:1px solid var(--line)}
+.toc details>summary{list-style:none;display:flex;gap:12px;align-items:baseline;padding:13px 0;cursor:pointer}
+.toc details>summary::-webkit-details-marker{display:none}
+.sim{font-family:var(--f-text);font-weight:700;color:var(--gold);min-width:4.6em;flex:none}
+.tt{flex:1;min-width:0;font-family:var(--f-text);font-size:1.05rem}
+.meta{font-size:.78rem;color:var(--muted);flex:none;font-variant-numeric:tabular-nums;display:flex;gap:6px;align-items:center}
+.done-dot{width:9px;height:9px;border-radius:50%;border:1.5px solid var(--line)}
+.done-dot.on{background:var(--gold);border-color:var(--gold)}
+.tlist{list-style:none;margin:0 0 12px;padding:0 4.6em 0 0;display:grid;gap:2px}
+.tlist button{text-align:right;width:100%;padding:5px 8px;border-radius:6px;font-size:.93rem;color:var(--ink)}
+.tlist button:hover{background:var(--accent-soft)}
+.tlist .seifl{font-size:.75rem;color:var(--gold);font-weight:700;padding:8px 8px 0}
+.open-ch{color:var(--accent);font-weight:700;font-size:.9rem;padding:4px 8px}
+
+/* reader */
+.reader{background:var(--sheet);border-inline:1px solid var(--line);min-height:100%}
+.ch-head{padding-block:26px 14px;text-align:center;border-bottom:1px double var(--line)}
+.ch-head .num{font-family:var(--f-text);color:var(--gold);font-weight:700;font-size:1.05rem}
+.ch-head h2{font-family:var(--f-text);font-weight:900;font-size:clamp(1.5rem,5vw,2rem);margin:.15em 0;text-wrap:balance;line-height:1.2}
+.ch-head p{margin:0;color:var(--muted);font-size:.9rem}
+.text{font-family:var(--f-text);font-size:var(--fs);line-height:1.85;padding-block:8px 30px}
+.text p{margin:0 0 .85em;text-align:justify;max-width:65ch;position:relative}
+.seif{font-family:var(--f-ui);font-weight:700;font-size:.82rem;letter-spacing:.05em;color:var(--gold);border-top:1px solid var(--gold);display:inline-block;padding-top:4px;margin:1.6em 0 .2em}
+.topic{display:flex;align-items:flex-start;gap:6px;margin:1.1em 0 .45em;scroll-margin-top:80px}
+.topic h3{font-family:var(--f-text);font-weight:700;font-size:1.12em;margin:0;flex:1;color:var(--accent);line-height:1.4}
+.topic .ib{width:32px;height:32px;color:var(--muted)}
+.topic .ib.on{color:var(--gold)}
+.text p.q{font-size:.95em;background:var(--paper);border-right:3px solid var(--line);padding:.55em .9em;border-radius:2px}
+.text p.sa{background:var(--gold-soft);border-right:3px solid var(--gold);padding:.55em .9em;border-radius:2px}
+.text p.sa::before{content:"פסק";font-family:var(--f-ui);font-size:.68rem;font-weight:700;color:var(--gold);display:block;letter-spacing:.06em}
+.pg{font-family:var(--f-ui);font-size:.7rem;color:var(--muted);float:left;margin-right:8px;font-variant-numeric:tabular-nums;opacity:.8}
+.flash{animation:flash 2.2s ease-out}
+@keyframes flash{0%,40%{background:var(--mark)}100%{}}
+mark{background:var(--mark);color:inherit;border-radius:2px}
+.ch-foot{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;padding-block:18px 28px;border-top:1px solid var(--line)}
+.btn{border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-weight:600;background:var(--sheet);text-align:right;max-width:100%}
+.btn small{display:block;color:var(--muted);font-weight:400;font-size:.76rem}
+.btn.primary{background:var(--accent);color:var(--sheet);border-color:var(--accent)}
+.btn.good{background:var(--gold-soft);border-color:var(--gold);color:var(--ink)}
+
+/* font popover */
+.pop{position:absolute;top:56px;left:max(12px,env(safe-area-inset-left,0px));background:var(--sheet);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.18);padding:10px;display:flex;gap:6px;align-items:center;z-index:25}
+.pop button{border:1px solid var(--line);border-radius:8px;min-width:40px;height:38px;font-family:var(--f-text);font-weight:700}
+.pop span{font-size:.8rem;color:var(--muted);min-width:3.5em;text-align:center;font-variant-numeric:tabular-nums}
+
+/* search / lists */
+.sbox{position:sticky;top:calc(env(safe-area-inset-top,0px) + 52px);z-index:15;background:var(--paper);padding-block:12px 8px}
+.sbox input{width:100%;font:inherit;font-size:1.05rem;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--sheet);color:var(--ink)}
+.hint{color:var(--muted);font-size:.88rem;margin:6px 0}
+.res{list-style:none;margin:0;padding:0}
+.res li{border-bottom:1px solid var(--line)}
+.res button{display:block;width:100%;text-align:right;padding:12px 2px}
+.res .where{font-size:.76rem;color:var(--gold);font-weight:700}
+.res .snip{font-family:var(--f-text);font-size:1rem;line-height:1.6;margin-top:2px;overflow-wrap:anywhere}
+.grp{font-family:var(--f-text);font-weight:700;color:var(--accent);margin:18px 0 4px;font-size:1.05rem}
+.empty{padding:40px 8px;text-align:center;color:var(--muted)}
+.empty strong{display:block;font-family:var(--f-text);color:var(--ink);font-size:1.15rem;margin-bottom:4px}
+.load{padding:60px 0;text-align:center;color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+@media (max-width:520px){.reader{border-inline:0}.tlist{padding-right:0}.sim{min-width:4em}}
+</style>
+</head>
+<body>
+
+<header class="bar" id="bar">
+  <div class="wrap">
+    <button class="ib" id="backBtn" aria-label="חזרה" hidden><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+    <h1 id="barTitle">סיכום הלכות ריבית</h1>
+    <button class="ib" id="fontBtn" aria-label="גודל גופן"><svg viewBox="0 0 24 24"><path d="M4 19l5-14 5 14M6 14h6M15 19l3-8 3 8M16 16h4"/></svg></button>
+  </div>
+  <div class="prog" id="prog"></div>
+</header>
+<div class="pop" id="pop" hidden>
+  <button id="fMinus" aria-label="הקטנת גופן">א-</button><span id="fVal">100%</span><button id="fPlus" aria-label="הגדלת גופן">א+</button>
+</div>
+
+<main id="main"><div class="load">טוען את הספר…</div></main>
+
+<nav class="tabs" aria-label="ניווט">
+  <div class="wrap">
+    <button class="tab" data-v="home"><svg viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2zM4 5v16M8 7h7"/></svg>תוכן</button>
+    <button class="tab" data-v="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>חיפוש</button>
+    <button class="tab" data-v="rulings"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 7h14M5 7l-3 7h6zM19 7l-3 7h6zM8 21h8"/></svg>פסקים</button>
+    <button class="tab" data-v="saved"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg>שמורים</button>
+  </div>
+</nav>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const main=$('#main');
+const store={get(k,d){try{const v=localStorage.getItem('ribbit:'+k);return v==null?d:JSON.parse(v)}catch(e){return d}},
+             set(k,v){try{localStorage.setItem('ribbit:'+k,JSON.stringify(v))}catch(e){}}};
+let B=null, state={view:'home',ch:null};
+let marks=store.get('marks',[]), done=store.get('done',[]), last=store.get('last',null), fs=store.get('fs',100), q='';
+const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const HEB=['','א','ב','ג','ד','ה','ו','ז','ח','ט'];
+function hebNum(n){ // 159 -> קנ"ט
+  const h=['','ק','ר','ש','ת'][Math.floor(n/100)]||''; n%=100;
+  let t=['','י','כ','ל','מ','נ','ס','ע','פ','צ'][Math.floor(n/10)], u=HEB[n%10];
+  if(n===15){t='ט';u='ו'} if(n===16){t='ט';u='ז'}
+  const s=h+t+u; return s.length>1?s.slice(0,-1)+'"'+s.slice(-1):s+"'";
+}
+function splitTitle(c){ // "סימן קנ"ט – כותרת" -> ["סימן קנ"ט","כותרת"]
+  const m=c.title.match(/^(סימן\s+\S+(?:\s*-\s*\S+)?)\s*[–-]\s*(.+)$/);
+  return m?[m[1].replace(/\s*-\s*/,'-'),m[2]]:['',c.title];
+}
+const norm=s=>s.replace(/[֑-ׇ]/g,'').replace(/[״”“]/g,'"').replace(/[׳’‘]/g,"'");
+function applyFs(){document.documentElement.style.setProperty('--fs',(1.13*fs/100)+'rem');$('#fVal').textContent=fs+'%'}
+applyFs();
+
+/* ---------- routing ---------- */
+function go(hash){ if(location.hash!==hash) location.hash=hash; else route(); }
+function route(){
+  const h=(location.hash||'#home').slice(1);
+  $('#pop').hidden=true;
+  let m;
+  if(m=h.match(/^c(\d+)(?:-b(\d+))?$/)){ const ci=+m[1]-1; if(B.chapters[ci]) return renderChapter(ci, m[2]!=null?+m[2]:null); }
+  if(h==='search') return renderSearch();
+  if(h==='rulings') return renderRulings();
+  if(h==='saved') return renderSaved();
+  renderHome();
+}
+function setChrome(view,title){
+  state.view=view;
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-current',t.dataset.v===view?'page':'false'));
+  $('#barTitle').textContent=title; $('#backBtn').hidden=view!=='chapter';
+  $('#fontBtn').hidden=view!=='chapter'; $('#prog').style.width='0';
+}
+
+/* ---------- home ---------- */
+function topicsOf(c){const out=[];c.blocks.forEach((b,i)=>{if(b.t==='h'||b.t==='s')out.push([b,i])});return out}
+function renderHome(){
+  setChrome('home','סיכום הלכות ריבית');
+  const nT=B.chapters.reduce((a,c)=>a+c.blocks.filter(b=>b.t==='h').length,0);
+  const nS=B.chapters.reduce((a,c)=>a+c.blocks.filter(b=>b.t==='sa').length,0);
+  let h=`<div class="wrap"><section class="hero"><div class="eyebrow">${esc(B.sub)}</div><h2>${esc(B.title)}</h2>
+    <p>סיכומי הסוגיות מהמקורות ועד אחרוני זמנינו, על סדר השולחן ערוך · ${esc(B.author)}</p>
+    <div class="stats"><span><b>${B.chapters.length}</b> פרקים</span><span><b>${nT}</b> נושאים</span><span><b>${nS}</b> פסקים</span><span><b>${done.length}/${B.chapters.length}</b> נלמדו</span></div></section>`;
+  if(last&&B.chapters[last.ci]){
+    const c=B.chapters[last.ci], st=splitTitle(c);
+    h+=`<button class="cont" id="contBtn"><span class="t"><small>המשך מהמקום שעצרת · ${esc(st[0]||'')}</small><strong>${esc(last.topic||st[1])}</strong></span><span class="go">המשך ←</span></button>`;
+  } else {
+    h+=`<button class="cont" id="contBtn"><span class="t"><small>התחלת לימוד</small><strong>${esc(splitTitle(B.chapters[0])[1])}</strong></span><span class="go">התחל ←</span></button>`;
+  }
+  h+=`<div class="row-btns"><button class="chip" id="rndBtn">נושא אקראי לחזרה</button><button class="chip" id="introBtn">הקדמת המחבר</button></div>
+    <div class="sec-h">תוכן עניינים</div><ul class="toc">`;
+  B.chapters.forEach((c,ci)=>{
+    const st=splitTitle(c), tps=topicsOf(c), nt=tps.filter(x=>x[0].t==='h').length;
+    h+=`<li><details data-ci="${ci}"><summary><span class="sim">${esc(st[0]||'נספח')}</span><span class="tt">${esc(st[1])}</span>
+      <span class="meta">עמ' ${c.pg} · ${nt} נושאים<i class="done-dot ${done.includes(ci)?'on':''}" title="${done.includes(ci)?'נלמד':'לא נלמד'}"></i></span></summary>
+      <ul class="tlist"><li><button class="open-ch" data-go="#c${ci+1}">פתח את הפרק ←</button></li>${tps.map(([b,i])=>b.t==='s'
+        ?`<li class="seifl">${esc(b.x)}</li>`:`<li><button data-go="#c${ci+1}-b${i}">${esc(b.x)}</button></li>`).join('')}</ul></details></li>`;
+  });
+  h+=`</ul><div style="height:24px"></div></div>`;
+  main.innerHTML=h; window.scrollTo(0,0);
+  $('#contBtn').onclick=()=>go(last&&B.chapters[last.ci]?`#c${last.ci+1}`+(last.bi!=null?`-b${last.bi}`:''):'#c1');
+  $('#rndBtn').onclick=()=>{const all=[];B.chapters.forEach((c,ci)=>c.blocks.forEach((b,i)=>{if(b.t==='h')all.push(`#c${ci+1}-b${i}`)}));go(all[Math.floor(Math.random()*all.length)])};
+  $('#introBtn').onclick=renderIntro;
+}
+function renderIntro(){
+  setChrome('chapter','הקדמה');
+  main.innerHTML=`<div class="wrap reader"><div class="ch-head"><div class="num">הקדמת המחבר</div><h2>${esc(B.title)}</h2><p>${esc(B.author)}</p></div>
+    <div class="text">${B.intro.map(p=>`<p>${esc(p)}</p>`).join('')}</div></div>`;
+  window.scrollTo(0,0);
+}
+
+/* ---------- reader ---------- */
+let scrollSaveT=null;
+function renderChapter(ci,bi){
+  const c=B.chapters[ci], st=splitTitle(c);
+  setChrome('chapter',st[0]?st[0]+' · '+st[1]:st[1]);
+  let h=`<div class="wrap reader"><div class="ch-head"><div class="num">${esc(st[0]||'נספח')}</div><h2>${esc(st[1])}</h2><p>${esc(c.sub||'')}${c.sub?' · ':''}עמוד ${c.pg} בספר</p></div><div class="text" id="txt">`;
+  let lastPg=null;
+  c.blocks.forEach((b,i)=>{
+    const id=`b${i}`;
+    const pg=b.pg!==lastPg?`<span class="pg">עמ' ${b.pg}</span>`:''; lastPg=b.pg;
+    if(b.t==='s') h+=`<div class="seif" id="${id}">${esc(b.x)}</div>`;
+    else if(b.t==='h'){const on=marks.some(m=>m.ci===ci&&m.bi===i);
+      h+=`<div class="topic" id="${id}" data-bi="${i}"><h3>${esc(b.x)}</h3><button class="ib bm ${on?'on':''}" data-bi="${i}" aria-label="שמירת נושא" aria-pressed="${on}"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4.5L6 21z"/></svg></button></div>`;}
+    else h+=`<p class="${b.t==='p'?'':b.t}" id="${id}" data-bi="${i}">${pg}${esc(b.x)}</p>`;
+  });
+  const prev=B.chapters[ci-1], next=B.chapters[ci+1], isDone=done.includes(ci);
+  h+=`</div><div class="ch-foot">
+    ${prev?`<button class="btn" data-go="#c${ci}"><small>→ הפרק הקודם</small>${esc(splitTitle(prev)[0]||splitTitle(prev)[1])}</button>`:'<span></span>'}
+    <button class="btn ${isDone?'good':''}" id="doneBtn">${isDone?'✓ נלמד':'סמן כנלמד'}</button>
+    ${next?`<button class="btn primary" data-go="#c${ci+2}"><small style="color:inherit;opacity:.8">הפרק הבא ←</small>${esc(splitTitle(next)[0]||splitTitle(next)[1])}</button>`:'<span></span>'}
+  </div></div>`;
+  main.innerHTML=h; state.ch=ci;
+  const target=bi!=null?document.getElementById('b'+bi):null;
+  if(target){ requestAnimationFrame(()=>{ const y=target.getBoundingClientRect().top+scrollY-70; window.scrollTo(0,y); target.classList.add('flash'); }); }
+  else if(last&&last.ci===ci&&last.y&&!bi) window.scrollTo(0,last.y); else window.scrollTo(0,0);
+  $('#doneBtn').onclick=()=>{ if(done.includes(ci)) done=done.filter(x=>x!==ci); else done.push(ci); store.set('done',done);
+    const b=$('#doneBtn'), d=done.includes(ci); b.textContent=d?'✓ נלמד':'סמן כנלמד'; b.classList.toggle('good',d); };
+  onScroll();
+}
+function currentTopic(){
+  const tops=[...document.querySelectorAll('#txt .topic')]; let cur=null;
+  for(const t of tops){ if(t.getBoundingClientRect().top<120) cur=t; else break; }
+  return cur;
+}
+function onScroll(){
+  if(state.view!=='chapter'||state.ch==null) return;
+  const d=document.documentElement, max=d.scrollHeight-innerHeight;
+  $('#prog').style.width=(max>0?Math.min(100,scrollY/max*100):100)+'%';
+  clearTimeout(scrollSaveT);
+  scrollSaveT=setTimeout(()=>{const t=currentTopic(); last={ci:state.ch,y:Math.round(scrollY),bi:t?+t.dataset.bi:null,topic:t?t.querySelector('h3').textContent:null}; store.set('last',last)},300);
+}
+addEventListener('scroll',onScroll,{passive:true});
+
+/* ---------- search ---------- */
+let idx=null;
+function buildIdx(){ idx=[]; B.chapters.forEach((c,ci)=>{let topic='';c.blocks.forEach((b,i)=>{if(b.t==='h')topic=b.x; idx.push({ci,i,topic,t:b.t,x:b.x,n:norm(b.x)})})}); }
+function renderSearch(){
+  setChrome('search','חיפוש בספר');
+  main.innerHTML=`<div class="wrap"><div class="sbox"><input id="qin" type="search" placeholder="חפש מילה או ביטוי, למשל: היתר עיסקא" value="${esc(q)}" autocomplete="off" enterkeyhint="search"></div><div id="sres"></div></div>`;
+  const inp=$('#qin'); let t=null;
+  inp.oninput=()=>{clearTimeout(t);t=setTimeout(()=>{q=inp.value;doSearch()},180)};
+  if(!q) inp.focus({preventScroll:true}); doSearch();
+}
+function doSearch(){
+  const box=$('#sres'); if(!box) return;
+  const qq=norm(q.trim());
+  if(qq.length<2){ box.innerHTML=`<p class="hint">הקלד לפחות שתי אותיות. החיפוש עובר על כל ${idx.length.toLocaleString('he-IL')} הפסקאות בספר.</p>
+     <p class="hint">רעיונות: <button class="chip" data-q="שטר עיסקא">שטר עיסקא</button> <button class="chip" data-q="הצמדה למדד">הצמדה למדד</button> <button class="chip" data-q="משכנתא">משכנתא</button> <button class="chip" data-q="גמ&quot;ח">גמ"ח</button></p>`; return; }
+  const words=qq.split(/\s+/).filter(Boolean);
+  const hits=[]; for(const e of idx){ if(words.every(w=>e.n.includes(w))) hits.push(e); if(hits.length>=300) break; }
+  if(!hits.length){ box.innerHTML=`<div class="empty"><strong>לא נמצאו תוצאות</strong>נסה כתיב אחר (ריבית / רבית, הלוואה / הלואה) או מילה אחת בלבד.</div>`; return; }
+  const re=new RegExp(words.map(w=>w.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('|'),'g');
+  box.innerHTML=`<p class="hint">${hits.length>=300?'300+':hits.length} תוצאות</p><ul class="res">`+hits.map(e=>{
+    const pos=e.n.indexOf(words[0]), s=Math.max(0,pos-70), raw=e.x.slice(s,pos+170);
+    const snip=(s>0?'…':'')+esc(raw).replace(re,m=>`<mark>${m}</mark>`)+(pos+170<e.x.length?'…':'');
+    const st=splitTitle(B.chapters[e.ci]);
+    return `<li><button data-go="#c${e.ci+1}-b${e.i}"><div class="where">${esc(st[0]||st[1])}${e.topic?' · '+esc(e.topic):''}</div><div class="snip">${snip}</div></button></li>`;
+  }).join('')+'</ul>';
+}
+
+/* ---------- rulings ---------- */
+function renderRulings(){
+  setChrome('rulings','פסקי השו"ע והרמ"א');
+  let h=`<div class="wrap"><p class="hint" style="margin-top:16px">כל פסקי השולחן ערוך והרמ"א שבספר, לפי סדר הסימנים. לחיצה פותחת את הפסק בתוך הסוגיא.</p>`;
+  B.chapters.forEach((c,ci)=>{
+    const st=splitTitle(c); let topic=''; const list=[];
+    c.blocks.forEach((b,i)=>{ if(b.t==='h')topic=b.x; if(b.t==='sa')list.push({b,i,topic}); });
+    if(!list.length) return;
+    h+=`<div class="grp">${esc(st[0]?st[0]+' – '+st[1]:st[1])}</div><ul class="res">`+list.map(({b,i,topic})=>`<li><button data-go="#c${ci+1}-b${i}">${topic?`<div class="where">${esc(topic)}</div>`:''}<div class="snip">${esc(b.x.length>420?b.x.slice(0,420)+'…':b.x)}</div></button></li>`).join('')+'</ul>';
+  });
+  main.innerHTML=h+'<div style="height:24px"></div></div>'; window.scrollTo(0,0);
+}
+
+/* ---------- saved ---------- */
+function renderSaved(){
+  setChrome('saved','נושאים שמורים');
+  if(!marks.length){ main.innerHTML=`<div class="wrap"><div class="empty"><strong>עדיין אין נושאים שמורים</strong>בתוך פרק, לחץ על סימן השמירה שליד כותרת הנושא כדי לחזור אליו מכאן.</div></div>`; return; }
+  main.innerHTML=`<div class="wrap"><ul class="res" style="margin-top:10px">`+marks.map(m=>{const c=B.chapters[m.ci]; if(!c)return''; const st=splitTitle(c);
+    return `<li><button data-go="#c${m.ci+1}-b${m.bi}"><div class="where">${esc(st[0]||st[1])}</div><div class="snip">${esc(c.blocks[m.bi].x)}</div></button></li>`}).join('')+'</ul></div>';
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',e=>{
+  const g=e.target.closest('[data-go]'); if(g){e.preventDefault();go(g.dataset.go);return}
+  const qb=e.target.closest('[data-q]'); if(qb){q=qb.dataset.q;const i=$('#qin');if(i)i.value=q;doSearch();return}
+  const bm=e.target.closest('.bm'); if(bm){const bi=+bm.dataset.bi,ci=state.ch;const k=marks.findIndex(m=>m.ci===ci&&m.bi===bi);
+    if(k>=0)marks.splice(k,1); else marks.unshift({ci,bi}); store.set('marks',marks); bm.classList.toggle('on',k<0); bm.setAttribute('aria-pressed',k<0); return}
+  const tab=e.target.closest('.tab'); if(tab){go('#'+tab.dataset.v);return}
+  if(!e.target.closest('#pop')&&!e.target.closest('#fontBtn')) $('#pop').hidden=true;
+});
+$('#backBtn').onclick=()=>go('#home');
+$('#fontBtn').onclick=()=>{$('#pop').hidden=!$('#pop').hidden};
+$('#fMinus').onclick=()=>{fs=Math.max(80,fs-10);store.set('fs',fs);applyFs()};
+$('#fPlus').onclick=()=>{fs=Math.min(170,fs+10);store.set('fs',fs);applyFs()};
+addEventListener('hashchange',route);
+
+fetch('book.json').then(r=>{if(!r.ok)throw new Error(r.status);return r.json()}).then(d=>{B=d;buildIdx();route()})
+  .catch(()=>{main.innerHTML='<div class="wrap"><div class="empty"><strong>לא הצלחנו לטעון את הספר</strong>בדוק את החיבור לרשת ורענן את הדף.</div></div>'});
+if('serviceWorker' in navigator && location.protocol==='https:' && !/claude/.test(location.hostname)){ try{navigator.serviceWorker.register('sw.js').catch(()=>{})}catch(e){} }
+})();
+</script>
+</body>
+</html>
