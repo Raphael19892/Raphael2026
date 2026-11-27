@@ -25,13 +25,15 @@ export function normalizeOff(p, barcode) {
   const analysis = analyzeIngredients(ingredientsText);
   if (per100.addedSugar == null && analysis.addedSugars.length === 0 && ingredientsText) per100.addedSugar = 0;
   const offNova = num(p.nova_group);
+  const own = ingredientsText ? assessNova(ingredientsText).group : null;
   return {
     id: `off:${barcode}`, barcode, source: 'openfoodfacts', status: 'label-declared',
     name: { en: p.product_name_en || p.product_name || p.generic_name || barcode, he: p.product_name_he || p.product_name || p.product_name_en || barcode },
     brand: p.brands || '', image: p.image_front_small_url || p.image_small_url || null,
     quantity: p.quantity || '', servingG: num(p.serving_quantity),
     per100, ingredientsText, analysis,
-    nova: offNova || assessNova(ingredientsText).group, novaSource: offNova ? 'openfoodfacts' : 'ingredients',
+    // Our own ingredient-based assessment is primary; OFF's automatic group is kept as a second opinion.
+    nova: own ?? offNova ?? null, novaSource: own ? 'ingredients' : offNova ? 'openfoodfacts' : 'ingredients', offNova,
     allergens: (p.allergens_tags || []).map((t) => t.replace(/^en:/, '')),
     tags: [], plant: null, emoji: '📦', group: 'packaged',
     density: nutrientDensity(per100), highIn: highIn(per100),

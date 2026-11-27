@@ -87,6 +87,7 @@ export function productSheet(p) {
     (allergyHits.length || notOk) && h('div', { class: 'flag flag-stop' }, icon('warn', 18), h('p', {}, t('allergyWarning'), allergyHits.length ? `: ${allergyHits.join(', ')}` : '')),
     caution && h('div', { class: 'flag flag-warn' }, icon('warn', 18), h('p', {}, `${t('cautionFor')}: ${caution}`)),
     h('p', { class: 'hint' }, p.local ? t(p.novaRange ? 'novaDependsTip' : 'novaTypicalTip') : p.novaSource === 'openfoodfacts' ? t('novaOffTip') : t(`nova${p.nova || 'x'}`)),
+    p.offNova && p.offNova !== p.nova && p.novaSource === 'ingredients' ? h('p', { class: 'hint' }, t('offNovaSays', { n: p.offNova }), ' ', t('offNovaWhy')) : null,
     h('h5', {}, t('per100g')),
     h('table', { class: 'ntable' }, h('tbody', {}, ['kcal', 'protein', 'carbs', 'sugars', 'addedSugar', 'fat', 'satFat', 'fiber', 'sodium', 'potassium', 'calcium', 'iron', 'magnesium', 'vitC', 'folate', 'vitB12', 'vitD'].map(row),
       p.poly != null && h('tr', {}, h('th', {}, t('polyphenols'), ' ≈'), h('td', {}, `${fmt(p.poly)} mg `, refChip('perezjimenez2010'))))),

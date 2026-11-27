@@ -26,9 +26,9 @@ const LEX = [
   // Industrial substances (rarely or never used in home kitchens)
   L(/hydroly[sz]ed|חלבון מפורק|hydrolysate/, 'substance', 'hydrolysed protein', 'strong'),
   L(/protein isolate|isolated (soy|pea|whey)|soy isolate|חלבון .*מבודד|מבודד חלבון/, 'substance', 'protein isolate', 'strong'),
-  L(/protein concentrate|תרכיז חלבון/, 'substance', 'protein concentrate', 'moderate'),
-  L(/whey protein|whey powder|אבקת מי גבינה|חלבון מי גבינה/, 'substance', 'whey protein', 'moderate'),
-  L(/casein|caseinate|קזאין|קזאינט/, 'substance', 'casein', 'moderate'),
+  // Added milk proteins in any form (concentrate, whey protein, casein) share one purpose and are counted once.
+  L(/milk protein concentrate|milk proteins?\b|תרכיז חלבוני חלב|תרכיז חלבון חלב|חלבוני חלב|חלבון חלב|whey protein|whey powder|אבקת מי גבינה|חלבון מי גבינה|casein|caseinate|קזאין|קזאינט/, 'substance', 'added milk protein', 'moderate'),
+  L(/protein concentrate|תרכיז חלבון|תרכיז חלבוני/, 'substance', 'protein concentrate', 'moderate'),
   L(/maltodextrin|מלטודקסטרין/, 'substance', 'maltodextrin', 'strong'),
   L(/glucose[- ]fructose|high[- ]fructose|fructose[- ]glucose|hfcs|isoglucose|corn syrup|סירופ תירס|סירופ גלוקוז[- ]פרוקטוז/, 'substance', 'high-fructose / glucose-fructose syrup', 'strong'),
   L(/glucose syrup|סירופ גלוקוז/, 'substance', 'glucose syrup', 'strong'),
@@ -89,7 +89,7 @@ const WHOLE_WORDS = [
 const WHOLE_SET = new Set([...WHOLE_WORDS, ...Object.entries(ALIASES).filter(([id]) => (FOOD_MAP[id]?.nova || 1) === 1).flatMap(([, a]) => a)].map((s) => s.toLowerCase()));
 
 export const PURPOSE_HE = {
-  'hydrolysed protein': 'חלבון מפורק', 'protein isolate': 'חלבון מבודד', 'protein concentrate': 'תרכיז חלבון', 'whey protein': 'חלבון מי גבינה', casein: 'קזאין',
+  'hydrolysed protein': 'חלבון מפורק', 'protein isolate': 'חלבון מבודד', 'protein concentrate': 'תרכיז חלבון', 'added milk protein': 'חלבון חלב מוסף', 'whey protein': 'חלבון מי גבינה', casein: 'קזאין',
   maltodextrin: 'מלטודקסטרין', 'high-fructose / glucose-fructose syrup': 'סירופ גלוקוז-פרוקטוז', 'glucose syrup': 'סירופ גלוקוז', 'invert sugar': 'סוכר אינוורטי', dextrose: 'דקסטרוז', fructose: 'פרוקטוז',
   'fruit-juice concentrate': 'תרכיז מיץ פירות', 'hydrogenated / interesterified fat': 'שומן מוקשה / מעובר אסטר', 'modified starch': 'עמילן מעובד', 'mechanically separated meat': 'בשר מופרד מכנית', gluten: 'גלוטן',
   'bulking agent': 'חומר מנפח', 'added fibre isolate': 'סיב מבודד מוסף', flavouring: 'חומרי טעם וריח', colour: 'צבע מאכל', 'non-sugar sweetener': 'ממתיק', 'sugar alcohol (sweetener)': 'רב-כוהל (ממתיק)',
@@ -112,7 +112,7 @@ function classifyIngredient(raw) {
 }
 
 const PROC_INDICATORS = [
-  [/extru(ded|sion)|puffed|נפוח|מוקצף|אקסטרוז/, 'extrusion / puffing', 'strong'],
+  [/extru(ded|sion)|puffed|נפוח|אקסטרוז/, 'extrusion / puffing', 'strong'],
   [/reconstituted|reformed|moulded|molded|משוחזר|מעוצב/, 'reconstitution / moulding', 'strong'],
   [/pre-?fried|deep-?fried|מטוגן מראש/, 'pre-frying', 'moderate'],
   [/hydrogenat/, 'hydrogenation', 'strong'],
@@ -163,8 +163,8 @@ export function assessNova(ingredientsText, opts = {}) {
     group = culinaryLed || whole.length === 0 ? 4 : 3;
     confidence = 'low';
     explanation = {
-      en: `Only one additive with a cosmetic function (${moderate[0].purpose}: “${moderate[0].text}”). Whether this is processed (NOVA 3) or ultra-processed (NOVA 4) depends on the overall formulation; ${group === 4 ? 'sugar/oil-led formulation suggests NOVA 4' : 'a mostly whole-food formulation suggests NOVA 3'}. Treat as borderline.`,
-      he: `רק תוסף אחד בעל תפקיד קוסמטי (${moderate[0].purposeHe}: ״${moderate[0].text}״). האם מדובר במזון מעובד (NOVA 3) או אולטרה-מעובד (NOVA 4) תלוי בפורמולציה הכוללת; ${group === 4 ? 'פורמולציה המבוססת על סוכר/שמן מרמזת על NOVA 4' : 'פורמולציה המבוססת בעיקר על מזון מלא מרמזת על NOVA 3'}. גבולי.`,
+      en: `Only one ${moderate[0].cls === 'substance' ? 'industrial ingredient (rarely used in home cooking)' : 'additive with a cosmetic function'} (${moderate[0].purpose}: “${moderate[0].text}”). Whether this is processed (NOVA 3) or ultra-processed (NOVA 4) depends on the overall formulation; ${group === 4 ? 'sugar/oil-led formulation suggests NOVA 4' : 'a mostly whole-food formulation suggests NOVA 3'}. Treat as borderline.`,
+      he: `רק ${moderate[0].cls === 'substance' ? 'רכיב תעשייתי אחד (שאינו בשימוש רגיל בבישול ביתי)' : 'תוסף אחד בעל תפקיד קוסמטי'} (${moderate[0].purposeHe}: ״${moderate[0].text}״). האם מדובר במזון מעובד (NOVA 3) או אולטרה-מעובד (NOVA 4) תלוי בפורמולציה הכוללת; ${group === 4 ? 'פורמולציה המבוססת על סוכר/שמן מרמזת על NOVA 4' : 'פורמולציה המבוססת בעיקר על מזון מלא מרמזת על NOVA 3'}. גבולי.`,
     };
   } else if (whole.length && !culinary.length && !by('preservative').length && !by('acidity').length) {
     group = 1; confidence = 'high';

@@ -161,6 +161,7 @@ const D = {
   menuDisclaimer: ['The menu is a suggestion only, not medical or dietetic advice. Quantities and fibre are estimates.', 'התפריט הוא הצעה בלבד ואינו ייעוץ רפואי או דיאטטי. הכמויות והסיבים הם אומדן.'],
 
   // NOVA explanations (badges and hints)
+  offNovaWhy: ['Their group is calculated automatically: a single listed ingredient (for example added milk protein) is enough for NOVA 4. The group shown above comes from this app\'s own check of the ingredient list.', 'הסיווג שלהם מחושב אוטומטית: מספיק רכיב אחד מהרשימה שלהם (למשל חלבון חלב מוסף) כדי לקבוע NOVA 4. הקבוצה שמוצגת למעלה היא מהבדיקה של האפליקציה עצמה לפי רשימת הרכיבים.'],
   novaTypicalLegend: ['NOVA* = typical group for this kind of food. NOVA 3–4? = depends on the specific product, so no group is assigned. Paste the ingredient list (Products tab) to check a product.', 'NOVA* = קבוצה טיפוסית לסוג המזון. NOVA 3–4? = תלוי במוצר הספציפי, ולכן לא נקבעת קבוצה. כדי לבדוק מוצר, הדביקו את רשימת הרכיבים (לשונית מוצרים).'],
   novaUnknownShort: ['Processing unknown for most of the meal', 'רמת העיבוד לא ידועה לרוב הארוחה'], typicalNova4: ['Usually ultra-processed', 'בדרך כלל אולטרה-מעובד'],
   photoNoAi: ['Photo analysis needs the AI service, which is not available here. Describe the meal in words instead.', 'ניתוח תמונה דורש את שירות ה-AI, שאינו זמין כאן. תארו את הארוחה במילים.'],

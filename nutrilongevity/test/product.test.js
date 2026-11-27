@@ -104,3 +104,32 @@ test('an unreadable link is reported as not read', async () => {
   assert.equal(t.ok, true);
   assert.equal(assessNova(t.record.ingredientsText).group, 3);
 });
+
+test('barcode products: our own ingredient check is primary; Open Food Facts NOVA is kept as a second opinion', async () => {
+  const { normalizeOff } = await import('../server/products.js');
+  const p = normalizeOff({ product_name: 'Protein yogurt 1.5%', nova_group: 4, ingredients_text_he: 'חלב מפוסטר 1.5% שומן, חלבון חלב, תרבית חיידקי יוגורט', nutriments: { 'energy-kcal_100g': 70, proteins_100g: 10 } }, '7290000000000');
+  assert.notEqual(p.nova, 4, 'a plain yogurt with added milk protein is not assigned NOVA 4 just because OFF says so');
+  assert.equal(p.novaSource, 'ingredients');
+  assert.equal(p.offNova, 4);
+  // Without an ingredient list, OFF's group is the only information and is shown, labelled as OFF.
+  const q = normalizeOff({ product_name: 'X', nova_group: 4, nutriments: {} }, '7290000000001');
+  assert.equal(q.nova, 4); assert.equal(q.novaSource, 'openfoodfacts');
+});
+
+test('added milk protein is assessed the same in Hebrew and English (borderline, not a whole food, not NOVA 4)', () => {
+  for (const txt of ['חלב דל שומן, חלבון חלב, תרבית', 'חלב, תרכיז חלבוני חלב, תרבית', 'skimmed milk, milk protein, cultures', 'skimmed milk, milk protein concentrate, cultures']) {
+    const r = assessNova(txt, { listComplete: true });
+    assert.equal(r.group, 3, txt); assert.equal(r.borderline, true, txt);
+    assert.ok(!/cosmetic|קוסמטי/.test(r.explanation.en + r.explanation.he), 'milk protein is not described as a cosmetic additive');
+  }
+  assert.equal(assessNova('חלב, חלבון חלב, ממתיק (סוכרלוז), חומרי טעם וריח, תרבית', { listComplete: true }).group, 4, 'flavoured + sweetened version is NOVA 4');
+});
+
+test('several forms of added milk protein count as one ingredient purpose; "whipped" is not an industrial marker', () => {
+  for (const txt of ['חלב, חלבוני חלב, תרכיז חלבוני חלב, תרבית', 'skimmed milk, milk protein concentrate, casein, cultures', 'milk, whey protein, milk proteins, cultures']) {
+    const r = assessNova(txt, { listComplete: true });
+    assert.equal(r.group, 3, txt); assert.equal(r.borderline, true, txt);
+  }
+  assert.notEqual(assessNova('יוגורט מוקצף: חלב, שמנת, תרבית', { listComplete: true }).group, 4);
+  assert.equal(assessNova('corn grits, salt (extruded)', { listComplete: true, processingInfo: 'extruded' }).group, 4, 'extrusion still counts');
+});
