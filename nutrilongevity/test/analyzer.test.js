@@ -95,3 +95,16 @@ test('unknown processing is never counted as NOVA 4 (regression)', () => {
   assert.ok(!a.evaluation.bad.some((b) => /ultra-processed/i.test(b.en)), 'no ultra-processed claim');
   assert.notEqual(a.evaluation.frameworks.nova.fit, 'low');
 });
+
+test('generic foods whose processing depends on the product (bread, dark chocolate, plant milks) get no NOVA 4 verdict', () => {
+  for (const id of ['white_bread', 'dark_chocolate', 'almond_milk', 'soy_yogurt', 'whey', 'croissant', 'pizza', 'fries', 'cookies', 'yogurt_fruit', 'chips', 'ice_cream', 'hamburger_bun', 'deli_turkey']) {
+    assert.equal(FOOD_MAP[id].nova, null, `${id} should not carry a fixed NOVA`);
+    assert.deepEqual(FOOD_MAP[id].novaRange, [3, 4], id);
+  }
+  // Foods that are ultra-processed by definition keep their typical NOVA 4.
+  for (const id of ['cola', 'diet_cola', 'choc_spread', 'hot_dog']) assert.equal(FOOD_MAP[id].nova, 4, id);
+  const r = analyzeMeal(parseMeal('2 פרוסות לחם עם חמאה ושוקולד מריר').items, {});
+  const text = JSON.stringify(r.evaluation);
+  assert.ok(!/אולטרה-מעובדים \(|ultra-processed \(/.test(text), 'bread/chocolate must not be named as ultra-processed');
+  assert.ok(r.ind.novaKcal.unknown > 0, 'their energy counts as processing unknown');
+});

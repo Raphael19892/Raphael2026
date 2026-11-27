@@ -160,6 +160,16 @@ const D = {
   menuUseAsPlan: ['Use as my weekly plan', 'קביעה כתפריט השבועי שלי'], menuImported: ['Set as your weekly plan', 'נקבע כתפריט השבועי שלך'], menuAnother: ['Build another version', 'גרסה אחרת'],
   menuDisclaimer: ['The menu is a suggestion only, not medical or dietetic advice. Quantities and fibre are estimates.', 'התפריט הוא הצעה בלבד ואינו ייעוץ רפואי או דיאטטי. הכמויות והסיבים הם אומדן.'],
 
+  // NOVA explanations (badges and hints)
+  novaTypicalLegend: ['NOVA* = typical group for this kind of food. NOVA 3–4? = depends on the specific product, so no group is assigned. Paste the ingredient list (Products tab) to check a product.', 'NOVA* = קבוצה טיפוסית לסוג המזון. NOVA 3–4? = תלוי במוצר הספציפי, ולכן לא נקבעת קבוצה. כדי לבדוק מוצר, הדביקו את רשימת הרכיבים (לשונית מוצרים).'],
+  novaUnknownShort: ['Processing unknown for most of the meal', 'רמת העיבוד לא ידועה לרוב הארוחה'], typicalNova4: ['Usually ultra-processed', 'בדרך כלל אולטרה-מעובד'],
+  photoNoAi: ['Photo analysis needs the AI service, which is not available here. Describe the meal in words instead.', 'ניתוח תמונה דורש את שירות ה-AI, שאינו זמין כאן. תארו את הארוחה במילים.'],
+  pasteImageHint: ['Tip: you can also paste a screenshot here (long-press → Paste).', 'טיפ: אפשר גם להדביק כאן צילום מסך (לחיצה ארוכה ← הדבקה).'], imagePasted: ['Image added', 'התמונה נוספה'],
+  novaTypicalTip: ['* Typical NOVA group for this kind of food, not a check of a specific product. To check a product, scan its barcode or paste its ingredient list.', '* קבוצת NOVA טיפוסית לסוג המזון הזה, לא בדיקה של מוצר מסוים. כדי לבדוק מוצר, סרקו ברקוד או הדביקו את רשימת הרכיבים.'],
+  novaDependsTip: ['The processing level of this food depends on the specific product (e.g. bakery bread is NOVA 3, packaged bread with emulsifiers is NOVA 4), so no group is assigned. Paste the ingredient list or scan the barcode to check.', 'רמת העיבוד של מזון זה תלויה במוצר הספציפי (למשל לחם מאפייה הוא NOVA 3, ולחם ארוז עם מתחלבים הוא NOVA 4), ולכן לא נקבעת קבוצה. הדביקו את רשימת הרכיבים או סרקו ברקוד כדי לבדוק.'],
+  novaOffTip: ['NOVA group as calculated by Open Food Facts from this product\'s ingredient list.', 'קבוצת NOVA כפי שחושבה ב-Open Food Facts לפי רשימת הרכיבים של המוצר.'],
+  novaUnknownTip: ['Processing level unknown: not enough information about the ingredients.', 'רמת העיבוד לא ידועה: אין מספיק מידע על הרכיבים.'],
+
   // Auth
   signIn: ['Sign in', 'התחברות'], createAccount: ['Create account', 'יצירת חשבון'], name: ['First name', 'שם פרטי'], email: ['Email', 'אימייל'], password: ['Password', 'סיסמה'],
   passwordHint: ['At least 8 characters.', 'לפחות 8 תווים.'], signOut: ['Sign out', 'התנתקות'],

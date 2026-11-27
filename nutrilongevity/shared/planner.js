@@ -48,7 +48,7 @@ export function isFoodOk(foodId, profile) {
 // Foods kept in the database for logging real meals but never proposed by the planner.
 const NOT_PLANNED = new Set(['water', 'sugar', 'butter', 'fries', 'chips', 'canola_oil']);
 export function planFriendly(f) {
-  return f.nova !== 4 && !NOT_PLANNED.has(f.id) && !f.tags.some((t) => ['addedsugar', 'processedmeat', 'sweetdrink', 'redmeat'].includes(t));
+  return f.nova !== 4 && !f.novaRange && !NOT_PLANNED.has(f.id) && !f.tags.some((t) => ['addedsugar', 'processedmeat', 'sweetdrink', 'redmeat'].includes(t));
 }
 
 /** Alternatives for an ingredient: same substitution group, allowed for this person. */

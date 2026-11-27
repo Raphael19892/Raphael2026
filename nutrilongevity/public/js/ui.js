@@ -111,7 +111,8 @@ export function pill(text, kind = '') { return h('span', { class: `pill ${kind}`
  * NOVA badge. basis: 'ingredients' (assessed from an actual ingredient list), 'openfoodfacts' (OFF's own
  * classification), 'typical' (usual level for this kind of food — not checked against a label).
  */
-export function novaBadge(n, basis = 'ingredients') {
+export function novaBadge(n, basis = 'ingredients', range = null) {
+  if (![1, 2, 3, 4].includes(n) && range) return h('span', { class: 'nova nova-x', title: t('novaDependsTip') }, `NOVA ${range.join('–')}?`);
   if (![1, 2, 3, 4].includes(n)) return h('span', { class: 'nova nova-x', title: t('novaUnknownTip') }, 'NOVA ?');
   if (basis === 'typical') return h('span', { class: `nova nova-${n} typical`, title: t('novaTypicalTip') }, `NOVA ${n}`, h('sup', {}, '*'));
   return h('span', { class: `nova nova-${n}`, title: basis === 'openfoodfacts' ? t('novaOffTip') : t(`nova${n}`) }, `NOVA ${n}`);

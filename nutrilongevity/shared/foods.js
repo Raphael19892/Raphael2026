@@ -484,6 +484,14 @@ export const FOODS = [
     { tags: ['fv', 'polyphenol'], plant: 'mandarin', unit: ['fruit', 74], swap: 'fruit', cost: 1, usda: 'Tangerines, (mandarin oranges), raw' }),
 ];
 
+/**
+ * Generic foods whose NOVA group depends on the specific product: e.g. bakery bread (flour, water, yeast, salt)
+ * is NOVA 3, while packaged bread with emulsifiers is NOVA 4. Without the actual ingredient list the app does not
+ * assign a group to these; it shows "NOVA 3–4?" and counts their energy as "processing unknown".
+ */
+export const NOVA_DEPENDS_ON_PRODUCT = new Set(['white_bread', 'hamburger_bun', 'croissant', 'dark_chocolate', 'soy_yogurt', 'almond_milk',
+  'yogurt_fruit', 'whey', 'pizza', 'fries', 'chips', 'cookies', 'ice_cream', 'deli_turkey']);
+for (const f of FOODS) if (NOVA_DEPENDS_ON_PRODUCT.has(f.id)) { f.novaRange = [3, 4]; f.nova = null; f.novaBasis = 'depends'; }
 export const FOOD_MAP = Object.fromEntries(FOODS.map((f) => [f.id, f]));
 
 export const FOOD_GROUPS = ['grains', 'starchy', 'legumes', 'vegetables', 'fruits', 'nuts', 'seeds', 'fats', 'dairy', 'fermented', 'protein', 'drinks', 'other'];

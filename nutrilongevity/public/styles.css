@@ -101,7 +101,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .pill.lvl-emerging, .pill.inf-association { background: color-mix(in srgb, var(--accent) 18%, transparent); color: color-mix(in srgb, var(--accent) 80%, var(--text)); }
 .pill.inf-mixed { background: color-mix(in srgb, var(--c5) 16%, transparent); color: var(--c5); }
 .pill.inf-modelling, .pill.inf-mechanistic { background: color-mix(in srgb, var(--c2) 16%, transparent); color: var(--c2); }
-.nova { display: inline-block; padding: 2px 8px; border-radius: 7px; font-size: .7rem; font-weight: 800; color: #fff; letter-spacing: .02em; }
+.nova { direction: ltr; unicode-bidi: isolate; display: inline-block; padding: 2px 8px; border-radius: 7px; font-size: .7rem; font-weight: 800; color: #fff; letter-spacing: .02em; }
 .nova-1 { background: var(--nova1); } .nova-2 { background: var(--nova2); } .nova-3 { background: var(--nova3); } .nova-4 { background: var(--nova4); }
 .hint { font-size: .84rem; color: var(--muted); }
 .disclaimer { display: flex; gap: 6px; align-items: flex-start; font-size: .8rem; color: var(--muted); margin: 20px 4px; }
@@ -473,10 +473,11 @@ details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .delta.down { background: color-mix(in srgb, var(--bad) 13%, transparent); color: var(--bad); }
 .delta.neutral { background: var(--surface-3); color: var(--muted); }
 .sugg-card .btn { justify-self: start; }
-.fw-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.fw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .fw-fit { display: flex; flex-direction: column; gap: 2px; padding: 10px; border-radius: 12px; border: 1px solid var(--line); font-size: .82rem; }
 .fw-fit strong { font-size: .84rem; }
 .fw-fit .ref-row { margin-top: 4px; }
+.fw-fit { min-width: 0; overflow-wrap: anywhere; } .fw-fit .ref-chip { white-space: normal; max-width: 100%; }
 .fit-high { background: color-mix(in srgb, var(--good) 12%, var(--surface)); } .fit-high span { color: var(--good); font-weight: 700; }
 .fit-partial { background: color-mix(in srgb, var(--near) 12%, var(--surface)); } .fit-partial span { color: color-mix(in srgb, var(--near) 70%, var(--text)); font-weight: 700; }
 .fit-low { background: color-mix(in srgb, var(--bad) 10%, var(--surface)); } .fit-low span { color: var(--bad); font-weight: 700; }
@@ -500,7 +501,7 @@ details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 
 @media (max-width: 400px) {
   .nutri-grid { grid-template-columns: repeat(3, 1fr); }
-  .fw-grid { grid-template-columns: 1fr 1fr; }
+  .fw-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bottom-nav a, .bottom-nav button { font-size: .6rem; }
 }
 

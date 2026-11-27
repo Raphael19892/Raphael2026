@@ -140,7 +140,7 @@ function swapSheet(meal, idx, apply) {
     return h('li', {}, h('button', { onclick: () => { apply(nm); s.close(); toast(t('swapped')); } },
       h('span', { class: 'ing-emoji' }, f.emoji),
       h('div', {}, h('strong', {}, f.name[lang()]), h('small', { class: 'muted' }, `${nm.items[idx].grams} g · ${t('fiberShort')} ${d('fiber')} g · P ${d('protein')} g · Na ${d('sodium', 0)} mg`)),
-      novaBadge(f.nova, 'typical')));
+      novaBadge(f.nova, 'typical', f.novaRange)));
   }) : h('li', { class: 'muted' }, t('noSwaps')));
   const s = sheet(`${t('swapIngredient')}: ${cur.name[lang()]}`, h('div', {}, h('p', { class: 'hint' }, t('swapHint')), list));
 }

@@ -156,7 +156,7 @@ function renderResult(host) {
             h('strong', {}, foodName(it)),
             h('small', { class: 'muted' }, `${fmt(ni.kcal)} kcal · P ${fmt(ni.protein, 1)} · ${t('fiberShort')} ${fmt(ni.fiber, 1)} · Na ${fmt(ni.sodium)}`),
             h('span', { class: 'ing-tags' },
-              novaBadge(f?.nova, it.foodId ? 'typical' : (f?.novaBasis || 'ingredients')),
+              novaBadge(f?.nova, it.foodId ? 'typical' : (f?.novaBasis || 'ingredients'), f?.novaRange),
               est ? pill(t('estimated'), 'warn') : pill(t('refData'), 'good'),
               it.quantity === 'assumed' ? pill(t('amountAssumed')) : null,
               it.cooking ? pill(t(`cook_${it.cooking}`)) : null,

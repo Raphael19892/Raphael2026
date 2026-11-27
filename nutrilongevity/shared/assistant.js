@@ -24,7 +24,7 @@ ${LIBRARY}
 function foodTable(ids) {
   return ids.map((id) => FOOD_MAP[id]).filter(Boolean).map((f) => {
     const p = f.per100;
-    return `${f.id}: ${f.name.en} per100g kcal ${p.kcal}, protein ${p.protein} g, carbs ${p.carbs} g, fiber ${p.fiber} g, fat ${p.fat} g (sat ${p.satFat}), sugars ${p.sugars} g, sodium ${p.sodium} mg, NOVA ${f.nova}, source ${f.status}`;
+    return `${f.id}: ${f.name.en} per100g kcal ${p.kcal}, protein ${p.protein} g, carbs ${p.carbs} g, fiber ${p.fiber} g, fat ${p.fat} g (sat ${p.satFat}), sugars ${p.sugars} g, sodium ${p.sodium} mg, NOVA ${f.nova ?? (f.novaRange ? f.novaRange.join('-') + ' (depends on the product)' : 'unknown')}, source ${f.status}`;
   }).join('\n');
 }
 
