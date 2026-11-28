@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f6f4ef">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>רשימת קניות</title>
+<style>
+  :root {
+    --bg: #f6f4ef;
+    --card: #ffffff;
+    --text: #1f2a24;
+    --muted: #8a918c;
+    --line: #e4e1d8;
+    --accent: #1f8a4c;
+    --accent-text: #ffffff;
+    --danger: #c2392f;
+    --chip: #ebe8df;
+    --shadow: 0 1px 3px rgba(0,0,0,.08);
+  }
+  :root[data-theme="dark"] {
+    --bg: #121714;
+    --card: #1c231f;
+    --text: #eaf0eb;
+    --muted: #7d8780;
+    --line: #2b342e;
+    --accent: #3fbf74;
+    --accent-text: #08150d;
+    --danger: #ff6b5e;
+    --chip: #28312b;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+    font-size: 19px;
+    line-height: 1.35;
+    min-height: 100dvh;
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+  button, input, select { font: inherit; color: inherit; }
+  button { cursor: pointer; border: 0; background: none; }
+
+  .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; }
+
+  /* ---------- header ---------- */
+  header {
+    position: sticky; top: 0; z-index: 5;
+    background: var(--bg);
+    padding: calc(12px + env(safe-area-inset-top)) 0 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 28px; }
+  .counter { color: var(--muted); font-size: 17px; margin-top: 2px; }
+  .counter b { color: var(--accent); }
+  .icon-btn {
+    width: 52px; height: 52px; border-radius: 14px;
+    background: var(--chip); font-size: 24px;
+    display: grid; place-items: center;
+  }
+  .actions { display: flex; gap: 8px; margin-top: 10px; }
+  .actions button {
+    flex: 1; min-height: 52px; border-radius: 14px;
+    background: var(--chip); font-weight: 600; font-size: 16px; padding: 0 6px;
+  }
+  .actions button:disabled { opacity: .4; }
+
+  /* ---------- list ---------- */
+  .cat { margin-top: 20px; }
+  .cat h2 {
+    margin: 0 0 8px; font-size: 18px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; font-weight: 700;
+  }
+  .cat h2 .n { background: var(--chip); border-radius: 999px; padding: 0 10px; font-size: 14px; }
+  .item {
+    display: flex; align-items: center; gap: 4px;
+    background: var(--card); border-radius: 16px; box-shadow: var(--shadow);
+    margin-bottom: 8px; min-height: 64px; padding-inline: 4px 4px;
+  }
+  .check {
+    flex: 1; display: flex; align-items: center; gap: 14px;
+    min-height: 64px; padding: 6px 12px; text-align: start; min-width: 0;
+  }
+  .box {
+    flex: none; width: 32px; height: 32px; border-radius: 10px;
+    border: 2.5px solid var(--muted); display: grid; place-items: center;
+    font-size: 20px; color: transparent; font-weight: 800;
+  }
+  .name { overflow-wrap: anywhere; font-size: 21px; }
+  .qty {
+    flex: none; background: var(--chip); border-radius: 10px;
+    padding: 2px 10px; font-weight: 700; font-size: 17px;
+  }
+  .catwrap {
+    flex: none; position: relative; width: 48px; height: 48px; border-radius: 12px;
+    background: var(--chip); display: grid; place-items: center; font-size: 22px;
+  }
+  .catsel {
+    position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0;
+    appearance: none; -webkit-appearance: none; border: 0; cursor: pointer; font-size: 16px;
+  }
+  .del { flex: none; width: 48px; height: 48px; border-radius: 12px; font-size: 20px; color: var(--danger); }
+
+  .item.done { background: transparent; box-shadow: none; border: 1px dashed var(--line); }
+  .item.done .name { text-decoration: line-through; color: var(--muted); }
+  .item.done .qty { color: var(--muted); }
+  .item.done .box { background: var(--muted); border-color: var(--muted); color: var(--bg); }
+  .item.done .catwrap { display: none; }
+  .bought-title { margin-top: 28px; }
+
+  .empty { text-align: center; color: var(--muted); margin: 56px 16px; font-size: 20px; }
+  .empty .big { font-size: 56px; }
+
+  /* ---------- add bar ---------- */
+  .addbar {
+    position: fixed; inset-inline: 0; bottom: 0; z-index: 6;
+    background: var(--bg); border-top: 1px solid var(--line);
+    padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
+  }
+  .addbar form { display: flex; gap: 8px; max-width: 640px; margin: 0 auto; padding: 0 16px; }
+  .addbar input {
+    flex: 1; min-width: 0; height: 58px; border-radius: 16px; padding: 0 16px;
+    border: 2px solid var(--line); background: var(--card); font-size: 20px;
+  }
+  .addbar input:focus { outline: none; border-color: var(--accent); }
+  .addbar button {
+    flex: none; width: 90px; height: 58px; border-radius: 16px;
+    background: var(--accent); color: var(--accent-text); font-weight: 800; font-size: 20px;
+  }
+
+  /* ---------- staples dialog ---------- */
+  dialog {
+    width: min(100%, 640px); max-width: 100%; margin: auto auto 0; border: 0;
+    border-radius: 24px 24px 0 0; padding: 0; background: var(--bg); color: var(--text);
+    max-height: 88dvh;
+  }
+  dialog::backdrop { background: rgba(0,0,0,.5); }
+  .sheet { padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; max-height: 88dvh; }
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; }
+  .sheet h2 { margin: 0; font-size: 24px; }
+  .hint { color: var(--muted); font-size: 16px; margin: 0; }
+  .staples { overflow-y: auto; display: flex; flex-wrap: wrap; gap: 8px; align-content: flex-start; padding: 2px 0; }
+  .staple { display: flex; align-items: center; background: var(--card); border-radius: 14px; box-shadow: var(--shadow); }
+  .staple .add { padding: 0 6px 0 14px; min-height: 54px; font-size: 19px; font-weight: 600; }
+  .staple .rm { width: 44px; min-height: 54px; color: var(--muted); font-size: 18px; }
+  .staple.onlist { opacity: .45; }
+  .sform { display: flex; gap: 8px; }
+  .sform input { flex: 1; min-width: 0; height: 54px; border-radius: 14px; padding: 0 14px; border: 2px solid var(--line); background: var(--card); font-size: 19px; }
+  .sform button { width: 80px; border-radius: 14px; background: var(--accent); color: var(--accent-text); font-weight: 800; }
+  .addall { min-height: 54px; border-radius: 14px; background: var(--chip); font-weight: 700; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: var(--text); color: var(--bg); padding: 12px 20px; border-radius: 999px;
+    font-weight: 600; z-index: 20; opacity: 0; pointer-events: none; transition: opacity .2s;
+    white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>🛒 רשימת קניות</h1>
+        <div class="counter" id="counter" aria-live="polite"></div>
+      </div>
+      <button class="icon-btn" id="theme" aria-label="החלף מצב כהה / בהיר"></button>
+    </div>
+    <div class="actions">
+      <button id="btnStaples">⭐ קבועים</button>
+      <button id="btnCopy">📋 העתק רשימה</button>
+      <button id="btnClear">🧹 נקה את מה שנקנה</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="list"></main>
+
+<div class="addbar">
+  <form id="addForm" autocomplete="off">
+    <input id="addInput" type="text" enterkeyhint="done" placeholder="מה להוסיף? למשל: חלב 2" aria-label="הוספת פריט">
+    <button type="submit">הוסף</button>
+  </form>
+</div>
+
+<dialog id="stapleDlg">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>⭐ מוצרים קבועים</h2>
+      <button class="icon-btn" id="stapleClose" aria-label="סגור">✕</button>
+    </div>
+    <p class="hint">לחץ על מוצר כדי להוסיף אותו לרשימה.</p>
+    <div class="staples" id="staples"></div>
+    <button class="addall" id="addAll">הוסף את כולם לרשימה</button>
+    <form class="sform" id="stapleForm" autocomplete="off">
+      <input id="stapleInput" type="text" placeholder="מוצר קבוע חדש (למשל: ביצים 12)" aria-label="מוצר קבוע חדש">
+      <button type="submit">שמור</button>
+    </form>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- קטגוריות ----------
+  const CATS = [
+    { id: 'produce', label: 'ירקות ופירות', icon: '🥬' },
+    { id: 'dairy',   label: 'מוצרי חלב',    icon: '🥛' },
+    { id: 'bakery',  label: 'מאפים',        icon: '🥖' },
+    { id: 'meat',    label: 'בשר ועוף',     icon: '🍗' },
+    { id: 'pantry',  label: 'מזווה',        icon: '🥫' },
+    { id: 'drinks',  label: 'משקאות',       icon: '🧃' },
+    { id: 'cleaning',label: 'ניקיון',       icon: '🧽' },
+    { id: 'other',   label: 'אחר',          icon: '📦' },
+  ];
+  const CAT = Object.fromEntries(CATS.map(c => [c.id, c]));
+
+  // הסדר חשוב: הראשון שמתאים מנצח (ניקיון ומשקאות לפני מזווה, חלב לפני מזווה)
+  const KEYWORDS = {
+    cleaning: ['סבון','אבקת כביסה','כביסה','מרכך','נוזל כלים','כלים','אקונומיקה','מטלית','ספוג','שקיות אשפה','אשפה','נייר טואלט','טואלט','מגבות נייר','מגבת','מנקה','ניקוי','חומר ניקוי','שמפו','מרכך שיער','משחת שיניים','מברשת','דאודורנט','חיתול','מגבונים','נייר אפייה','נייר סוכך','אלומיניום','ניילון','סקוטש','מטהר'],
+    drinks:   ['מים','מיץ','קולה','פפסי','ספרייט','סודה','בירה','יין','וודקה','ויסקי','משקה','קפה','תה','נס קפה','נסקפה','שוופס','פחית','מינרלים','לימונדה','אנרג','קפסולות','חליטה','תרבותי'],
+    dairy:    ['חלב','גבינה','גבינת','קוטג','שמנת','יוגורט','לבן','לאבנה','חמאה','מרגרינה','ביצים','ביצה','מעדן','שוקו','גבינה צהובה','מוצרלה','פטה','בולגרית','קשקבל','ריקוטה','אשל','חלבון','דנונה','מילקי','גד','שמנת חמוצה','שמנת מתוקה'],
+    bakery:   ['לחם','לחמניה','לחמניות','פיתה','פיתות','חלה','חלות','בגט','בייגל','בורקס','קרואסון','עוגה','עוגיות','עוגיה','מאפה','מאפים','טורטייה','לאפה','רוגלך','פשטידה','פיצה','כיסנין','בצק','טוסט','פרוסות','לחם אחיד'],
+    meat:     ['עוף','חזה','שניצל','שניצלים','בשר','טחון','סטייק','אנטריקוט','כנפיים','כנפיים','כבד','נקניק','נקניקיות','קבב','המבורגר','הודו','פרגית','פרגיות','שוק','ירכיים','דג','דגים','סלמון','טונה טרייה','אמנון','לברק','פילה','צלעות','קציצות','בייקון','סלמי','פסטרמה','אסאדו','צלי'],
+    produce:  ['עגבני','מלפפון','מלפפונים','חסה','גזר','בצל','שום','תפוח','תפוחים','בננה','בננות','תפוז','תפוזים','לימון','לימונים','אבוקדו','פלפל','חציל','קישוא','זוקיני','כרוב','כרובית','ברוקולי','תפוח אדמה','תפוחי אדמה','בטטה','פטריות','פטרוזיליה','כוסברה','נענע','בזיליקום','שמיר','עירית','תרד','סלק','צנון','צנונית','ענבים','אבטיח','מלון','אפרסק','נקטרינה','שזיף','אגס','תות','תותים','אפרסמון','רימון','קלמנטינה','אשכולית','מנגו','אננס','קיווי','דובדבן','תמר','תמרים','עלים','ירק','ירקות','פרי','פירות','תירס','סלרי','לפת','דלעת','קולרבי','פול','שעועית ירוקה','חמציץ','ג׳ינג׳ר','גינגר','ג\'ינג\'ר','עגבניות שרי','שרי','חסה','כרישה','שומר','ענבה','פומלה'],
+    pantry:   ['אורז','פסטה','ספגטי','קמח','סוכר','מלח','שמן','זית','חומץ','רוטב','קטשופ','מיונז','חרדל','טחינה','חומוס','שימורים','תירס שימורים','טונה','סרדינים','קורנפלקס','דגנים','שיבולת','קוואקר','גרנולה','עדשים','שעועית','קטניות','בורגול','קוסקוס','פתיתים','אטריות','אבקת אפייה','שמרים','וניל','קקאו','שוקולד','ממרח','ריבה','דבש','סילאן','חלווה','במבה','ביסלי','חטיף','חטיפים','צ\'יפס','צ׳יפס','פופקורן','אגוזים','שקדים','בוטנים','גרעינים','צימוקים','פירות יבשים','תבלין','פפריקה','כמון','קינמון','פלפל שחור','מרק','אבקת מרק','קוביות','רסק','עגבניות מרוסק','זיתים','חמוצים','מלפפונים חמוצים','סויה','קטשופ','סוכריות','מסטיק','ממתק','ממתקים','פתי בר','וופל','ביסקוויט','קרקר','קרקרים','דייסה','אורז בסמטי','נודלס','חלבה','תחליב','שיבולת שועל'],
+  };
+
+  const ORDER = ['cleaning','drinks','dairy','bakery','meat','produce','pantry'];
+
+  function norm(s) {
+    return s.toLowerCase().replace(/[֑-ׇ]/g, '').replace(/["'׳״`]/g, '').trim();
+  }
+
+  function guessCategory(name) {
+    const n = norm(name);
+    // מילה מלאה / התחלת מילה קודם, אחר כך הכלה
+    for (const id of ORDER) {
+      for (const kw of KEYWORDS[id]) {
+        const k = norm(kw);
+        if (n === k || n.startsWith(k + ' ') || n.includes(' ' + k + ' ') || n.endsWith(' ' + k)) return id;
+      }
+    }
+    for (const id of ORDER) {
+      for (const kw of KEYWORDS[id]) {
+        const k = norm(kw);
+        if (k.length >= 3 && n.includes(k)) return id;
+      }
+    }
+    return 'other';
+  }
+
+  // ---------- פענוח "חלב 2" ----------
+  function parseEntry(text) {
+    let t = text.trim().replace(/\s+/g, ' ');
+    if (!t) return null;
+    let qty = '';
+    let m;
+    if ((m = t.match(/^(.+?)\s*[xX×]\s*(\d+(?:[.,]\d+)?)$/))) { t = m[1]; qty = m[2]; }
+    else if ((m = t.match(/^(.+?)\s+(\d+(?:[.,]\d+)?(?:\s?(?:ק"ג|קג|ק״ג|גרם|גר|ליטר|ל|יח'|יח|חבילות|חבילה|שקיות|קופסאות|בקבוקים))?)$/))) { t = m[1]; qty = m[2]; }
+    else if ((m = t.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/))) { qty = m[1]; t = m[2]; }
+    return { name: t.trim(), qty: qty.trim() };
+  }
+
+  // ---------- מצב ושמירה ----------
+  const KEY = 'shopping-list-v1';
+  const defaultStaples = ['חלב','לחם','ביצים','עגבניות','מלפפונים'].map(n => ({ name: n, qty: '' }));
+  let state = { items: [], staples: defaultStaples, overrides: {}, theme: null };
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) state = Object.assign(state, JSON.parse(raw));
+    } catch (e) {}
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
+  }
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  function categoryFor(name) {
+    const o = state.overrides[norm(name)];
+    return (o && CAT[o]) ? o : guessCategory(name);
+  }
+
+  // ---------- פעולות ----------
+  function addItem(name, qty) {
+    name = name.trim();
+    if (!name) return;
+    const existing = state.items.find(i => !i.done && norm(i.name) === norm(name));
+    if (existing) {
+      const a = parseFloat(String(existing.qty).replace(',', '.')) || 1;
+      const b = parseFloat(String(qty).replace(',', '.')) || 1;
+      const isPlain = v => /^\d+(?:[.,]\d+)?$/.test(String(v || '1'));
+      if (isPlain(existing.qty) && isPlain(qty)) existing.qty = String(a + b);
+      toast('כבר ברשימה: ' + existing.name + (existing.qty ? ' ' + existing.qty : ''));
+    } else {
+      // אם היה מסומן כנקנה — מחזירים אותו לרשימה
+      const bought = state.items.find(i => i.done && norm(i.name) === norm(name));
+      if (bought) { bought.done = false; bought.qty = qty || bought.qty; }
+      else state.items.push({ id: uid(), name, qty: qty || '', cat: categoryFor(name), done: false });
+    }
+    save(); render();
+  }
+
+  function onSubmit(e) {
+    e.preventDefault();
+    const inp = document.getElementById('addInput');
+    const p = parseEntry(inp.value);
+    if (!p) return;
+    addItem(p.name, p.qty);
+    inp.value = '';
+    inp.focus();
+  }
+
+  function toggle(id) {
+    const it = state.items.find(i => i.id === id);
+    if (!it) return;
+    it.done = !it.done;
+    save(); render();
+  }
+  function remove(id) {
+    state.items = state.items.filter(i => i.id !== id);
+    save(); render();
+  }
+  function setCat(id, cat) {
+    const it = state.items.find(i => i.id === id);
+    if (!it || !CAT[cat]) return;
+    it.cat = cat;
+    state.overrides[norm(it.name)] = cat; // זוכר לפעם הבאה
+    save(); render();
+  }
+  function clearBought() {
+    const n = state.items.filter(i => i.done).length;
+    if (!n) return;
+    state.items = state.items.filter(i => !i.done);
+    save(); render();
+    toast('נוקו ' + n + ' פריטים');
+  }
+
+  // ---------- העתקה כטקסט ----------
+  function buildText() {
+    const open = state.items.filter(i => !i.done);
+    if (!open.length) return '';
+    const lines = ['🛒 רשימת קניות', ''];
+    for (const c of CATS) {
+      const g = open.filter(i => i.cat === c.id);
+      if (!g.length) continue;
+      lines.push(c.icon + ' ' + c.label);
+      g.forEach(i => lines.push('• ' + i.name + (i.qty ? ' ' + i.qty : '')));
+      lines.push('');
+    }
+    return lines.join('\n').trim();
+  }
+  async function copyList() {
+    const text = buildText();
+    if (!text) { toast('אין מה להעתיק'); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (e) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (_) {}
+      ta.remove();
+    }
+    toast('הרשימה הועתקה ✓');
+  }
+
+  // ---------- תצוגה ----------
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+  function itemHTML(i) {
+    const opts = CATS.map(c => `<option value="${c.id}"${c.id === i.cat ? ' selected' : ''}>${c.icon} ${c.label}</option>`).join('');
+    return `<div class="item${i.done ? ' done' : ''}" data-id="${i.id}">
+      <button class="check" data-act="toggle" aria-pressed="${i.done}" aria-label="${i.done ? 'בטל סימון' : 'סמן כנקנה'}: ${esc(i.name)}">
+        <span class="box">✓</span>
+        <span class="name">${esc(i.name)}</span>
+        ${i.qty ? `<span class="qty">${esc(i.qty)}</span>` : ''}
+      </button>
+      <label class="catwrap" title="שנה קטגוריה">${CAT[i.cat].icon}<select class="catsel" data-act="cat" aria-label="שנה קטגוריה: ${esc(CAT[i.cat].label)}">${opts}</select></label>
+      <button class="del" data-act="del" aria-label="מחק ${esc(i.name)}">🗑</button>
+    </div>`;
+  }
+
+  function render() {
+    const open = state.items.filter(i => !i.done);
+    const done = state.items.filter(i => i.done);
+    document.getElementById('counter').innerHTML =
+      state.items.length ? `נשארו <b>${open.length}</b> מתוך <b>${state.items.length}</b>` : '';
+
+    let html = '';
+    if (!state.items.length) {
+      html = `<div class="empty"><div class="big">🛒</div>הרשימה ריקה.<br>כתוב משהו למטה, או פתח את ⭐ קבועים.</div>`;
+    } else {
+      for (const c of CATS) {
+        const g = open.filter(i => i.cat === c.id);
+        if (!g.length) continue;
+        html += `<section class="cat"><h2>${c.icon} ${c.label} <span class="n">${g.length}</span></h2>${g.map(itemHTML).join('')}</section>`;
+      }
+      if (!open.length) html += `<div class="empty"><div class="big">🎉</div>הכול נקנה!</div>`;
+      if (done.length) {
+        html += `<section class="cat bought-title"><h2>✓ נקנו <span class="n">${done.length}</span></h2>${done.map(itemHTML).join('')}</section>`;
+      }
+    }
+    document.getElementById('list').innerHTML = html;
+    document.getElementById('btnClear').disabled = !done.length;
+    document.getElementById('btnCopy').disabled = !open.length;
+    renderStaples();
+  }
+
+  function renderStaples() {
+    const box = document.getElementById('staples');
+    if (!state.staples.length) { box.innerHTML = '<p class="hint">עדיין אין מוצרים קבועים. הוסף למטה.</p>'; return; }
+    box.innerHTML = state.staples.map((s, idx) => {
+      const on = state.items.some(i => !i.done && norm(i.name) === norm(s.name));
+      return `<div class="staple${on ? ' onlist' : ''}" data-idx="${idx}">
+        <button class="add" data-act="sadd">${on ? '✓ ' : '+ '}${esc(s.name)}${s.qty ? ' ' + esc(s.qty) : ''}</button>
+        <button class="rm" data-act="srm" aria-label="הסר ${esc(s.name)} מהקבועים">✕</button>
+      </div>`;
+    }).join('');
+  }
+
+  // ---------- הודעה קצרה ----------
+  let toastTimer;
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+  }
+
+  // ---------- ערכת נושא ----------
+  function applyTheme() {
+    const dark = state.theme ? state.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    document.getElementById('theme').textContent = dark ? '☀️' : '🌙';
+    document.querySelector('meta[name=theme-color]').content = dark ? '#121714' : '#f6f4ef';
+  }
+
+  // ---------- אירועים ----------
+  const dlg = document.getElementById('stapleDlg');
+
+  document.getElementById('addForm').addEventListener('submit', onSubmit);
+  document.getElementById('btnCopy').addEventListener('click', copyList);
+  document.getElementById('btnClear').addEventListener('click', clearBought);
+  document.getElementById('btnStaples').addEventListener('click', () => { renderStaples(); dlg.showModal(); });
+  document.getElementById('stapleClose').addEventListener('click', () => dlg.close());
+  dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+  document.getElementById('theme').addEventListener('click', () => {
+    const dark = document.documentElement.dataset.theme === 'dark';
+    state.theme = dark ? 'light' : 'dark';
+    save(); applyTheme();
+  });
+
+  document.getElementById('list').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const id = b.closest('.item')?.dataset.id;
+    if (b.dataset.act === 'toggle') toggle(id);
+    else if (b.dataset.act === 'del') remove(id);
+  });
+  document.getElementById('list').addEventListener('change', e => {
+    if (e.target.dataset.act === 'cat') setCat(e.target.closest('.item').dataset.id, e.target.value);
+  });
+
+  document.getElementById('staples').addEventListener('click', e => {
+    const b = e.target.closest('[data-act]');
+    if (!b) return;
+    const s = state.staples[+b.closest('.staple').dataset.idx];
+    if (!s) return;
+    if (b.dataset.act === 'sadd') {
+      if (state.items.some(i => !i.done && norm(i.name) === norm(s.name))) { toast('כבר ברשימה'); return; }
+      addItem(s.name, s.qty);
+      toast('נוסף: ' + s.name);
+    } else if (b.dataset.act === 'srm') {
+      state.staples.splice(+b.closest('.staple').dataset.idx, 1);
+      save(); renderStaples();
+    }
+  });
+  document.getElementById('addAll').addEventListener('click', () => {
+    let n = 0;
+    state.staples.forEach(s => {
+      if (!state.items.some(i => !i.done && norm(i.name) === norm(s.name))) { addItem(s.name, s.qty); n++; }
+    });
+    toast(n ? 'נוספו ' + n + ' מוצרים' : 'הכול כבר ברשימה');
+  });
+  document.getElementById('stapleForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const inp = document.getElementById('stapleInput');
+    const p = parseEntry(inp.value);
+    if (!p) return;
+    if (!state.staples.some(s => norm(s.name) === norm(p.name))) state.staples.push(p);
+    inp.value = ''; save(); renderStaples();
+  });
+
+  // ---------- התחלה ----------
+  load();
+  applyTheme();
+  render();
+})();
+</script>
+</body>
+</html>
