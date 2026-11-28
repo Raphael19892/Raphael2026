@@ -44,7 +44,7 @@
     font-size: 19px;
     line-height: 1.35;
     min-height: 100dvh;
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    padding-bottom: calc(160px + env(safe-area-inset-bottom));
   }
   button, input, select { font: inherit; color: inherit; }
   button { cursor: pointer; border: 0; background: none; }
@@ -126,6 +126,19 @@
     background: var(--bg); border-top: 1px solid var(--line);
     padding: 10px 0 calc(10px + env(safe-area-inset-bottom));
   }
+  .suggest {
+    display: flex; gap: 8px; overflow-x: auto; max-width: 640px; margin: 0 auto;
+    padding: 0 16px 10px; scrollbar-width: none;
+  }
+  .suggest::-webkit-scrollbar { display: none; }
+  .suggest:empty { display: none; }
+  .suggest .lbl { flex: none; align-self: center; color: var(--muted); font-size: 15px; }
+  .sug {
+    flex: none; min-height: 46px; padding: 0 16px; border-radius: 999px;
+    background: var(--card); border: 1.5px solid var(--line); font-size: 18px; font-weight: 600;
+    white-space: nowrap;
+  }
+  .sug small { color: var(--muted); font-weight: 500; margin-inline-start: 4px; }
   .addbar form { display: flex; gap: 8px; max-width: 640px; margin: 0 auto; padding: 0 16px; }
   .addbar input {
     flex: 1; min-width: 0; height: 58px; border-radius: 16px; padding: 0 16px;
@@ -159,12 +172,17 @@
   .addall { min-height: 54px; border-radius: 14px; background: var(--chip); font-weight: 700; }
 
   .toast {
-    position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translateX(-50%);
     background: var(--text); color: var(--bg); padding: 12px 20px; border-radius: 999px;
     font-weight: 600; z-index: 20; opacity: 0; pointer-events: none; transition: opacity .2s;
-    white-space: nowrap;
+    white-space: nowrap; display: flex; align-items: center; gap: 14px;
   }
   .toast.show { opacity: 1; }
+  .toast.show.has-undo { pointer-events: auto; padding-inline-end: 8px; }
+  .toast button {
+    background: var(--accent); color: var(--accent-text); border-radius: 999px;
+    min-height: 40px; padding: 0 16px; font-weight: 800;
+  }
 </style>
 </head>
 <body>
@@ -187,7 +205,8 @@
 
 <main class="wrap" id="list"></main>
 
-<div class="addbar">
+<div class="addbar" id="addbar">
+  <div class="suggest" id="suggest" aria-label="הצעות"></div>
   <form id="addForm" autocomplete="off">
     <input id="addInput" type="text" enterkeyhint="done" placeholder="מה להוסיף? למשל: חלב 2" aria-label="הוספת פריט">
     <button type="submit">הוסף</button>
@@ -279,7 +298,7 @@
   // ---------- מצב ושמירה ----------
   const KEY = 'shopping-list-v1';
   const defaultStaples = ['חלב','לחם','ביצים','עגבניות','מלפפונים'].map(n => ({ name: n, qty: '' }));
-  let state = { items: [], staples: defaultStaples, overrides: {}, theme: null };
+  let state = { items: [], staples: defaultStaples, overrides: {}, history: {}, theme: null };
 
   function load() {
     try {
@@ -295,6 +314,68 @@
   function categoryFor(name) {
     const o = state.overrides[norm(name)];
     return (o && CAT[o]) ? o : guessCategory(name);
+  }
+
+  // ---------- היסטוריה והשלמה אוטומטית ----------
+  function remember(name, qty) {
+    const k = norm(name);
+    const h = state.history[k] || { name, qty: '', n: 0 };
+    h.name = name; h.n += 1; h.last = Date.now();
+    if (qty) h.qty = qty;
+    state.history[k] = h;
+  }
+  // מילים במילון שהן רק "שורש" לזיהוי, ולא שם מוצר — לא מציעים אותן
+  const NOT_PRODUCTS = new Set(['עגבני','גבינת','אנרג','ירק','פרי','עלים','שוק','גד','לבן','זית','כלים','אשפה','טואלט','מגבת','ניקוי','קוביות','תבלין','מעדן','חזה','טחון','פילה','דג','שרי','ענבה','תרבותי','פחית','חליטה','מטהר','סקוטש','ניילון','חלבון','אשל','לחם אחיד','טונה טרייה','תירס שימורים','עגבניות מרוסק','פירות יבשים','קפסולות','סודה']);
+  const ALL_WORDS = [...new Set(Object.values(KEYWORDS).flat())].filter(w => w.length >= 2 && !NOT_PRODUCTS.has(w));
+
+  function onList(name) { return state.items.some(i => !i.done && norm(i.name) === norm(name)); }
+
+  function suggestions(text) {
+    const p = parseEntry(text);
+    const q = p ? norm(p.name) : '';
+    const hist = Object.values(state.history);
+    const out = [], seen = new Set();
+    const push = (name, qty, from) => {
+      const k = norm(name);
+      if (seen.has(k) || onList(name) || k === q) return;
+      seen.add(k); out.push({ name, qty, from });
+    };
+    if (!q) {
+      // שדה ריק: מה שקונים הכי הרבה ועוד לא ברשימה
+      hist.sort((a, b) => b.n - a.n || b.last - a.last).forEach(h => push(h.name, h.qty, 'h'));
+      return out.slice(0, 8);
+    }
+    const score = h => (norm(h.name).startsWith(q) ? 0 : 1);
+    hist.filter(h => norm(h.name).includes(q))
+        .sort((a, b) => score(a) - score(b) || b.n - a.n)
+        .forEach(h => push(h.name, h.qty, 'h'));
+    state.staples.filter(s => norm(s.name).includes(q)).forEach(s => push(s.name, s.qty, 's'));
+    ALL_WORDS.filter(w => norm(w).startsWith(q)).forEach(w => push(w, '', 'd'));
+    return out.slice(0, 8);
+  }
+
+  let barFocused = false;
+  function renderSuggest() {
+    const box = document.getElementById('suggest');
+    const val = document.getElementById('addInput').value;
+    if (!barFocused && !val.trim()) { box.innerHTML = ''; return; }
+    const list = suggestions(val);
+    if (!list.length) { box.innerHTML = ''; return; }
+    const typedQty = (parseEntry(val) || {}).qty || '';
+    box.innerHTML = (val.trim() ? '' : '<span class="lbl">קונים הרבה:</span>') + list.map((x, idx) => {
+      const qty = typedQty || x.qty;
+      return `<button type="button" class="sug" data-idx="${idx}">${esc(x.name)}${qty ? `<small>${esc(qty)}</small>` : ''}</button>`;
+    }).join('');
+    box._list = list; box._qty = typedQty;
+  }
+
+  // ---------- ביטול (Undo) ----------
+  let undoSnap = null;
+  function snapshot() { undoSnap = JSON.stringify(state.items); }
+  function undo() {
+    if (!undoSnap) return;
+    state.items = JSON.parse(undoSnap); undoSnap = null;
+    save(); render(); toast('שוחזר ✓');
   }
 
   // ---------- פעולות ----------
@@ -314,6 +395,7 @@
       if (bought) { bought.done = false; bought.qty = qty || bought.qty; }
       else state.items.push({ id: uid(), name, qty: qty || '', cat: categoryFor(name), done: false });
     }
+    remember(name, qty);
     save(); render();
   }
 
@@ -334,8 +416,12 @@
     save(); render();
   }
   function remove(id) {
+    const it = state.items.find(i => i.id === id);
+    if (!it) return;
+    snapshot();
     state.items = state.items.filter(i => i.id !== id);
     save(); render();
+    toast('נמחק: ' + it.name, undo);
   }
   function setCat(id, cat) {
     const it = state.items.find(i => i.id === id);
@@ -347,9 +433,10 @@
   function clearBought() {
     const n = state.items.filter(i => i.done).length;
     if (!n) return;
+    snapshot();
     state.items = state.items.filter(i => !i.done);
     save(); render();
-    toast('נוקו ' + n + ' פריטים');
+    toast('נוקו ' + n + ' פריטים', undo);
   }
 
   // ---------- העתקה כטקסט ----------
@@ -421,6 +508,7 @@
     document.getElementById('btnClear').disabled = !done.length;
     document.getElementById('btnCopy').disabled = !open.length;
     renderStaples();
+    renderSuggest();
   }
 
   function renderStaples() {
@@ -437,11 +525,19 @@
 
   // ---------- הודעה קצרה ----------
   let toastTimer;
-  function toast(msg) {
+  function toast(msg, onUndo) {
     const t = document.getElementById('toast');
-    t.textContent = msg; t.classList.add('show');
+    t.textContent = msg;
+    t.classList.toggle('has-undo', !!onUndo);
+    if (onUndo) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.textContent = 'בטל';
+      b.onclick = () => { t.classList.remove('show'); onUndo(); };
+      t.appendChild(b);
+    }
+    t.classList.add('show');
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.remove('show'), 1800);
+    toastTimer = setTimeout(() => t.classList.remove('show'), onUndo ? 5000 : 1800);
   }
 
   // ---------- ערכת נושא ----------
@@ -456,6 +552,22 @@
   const dlg = document.getElementById('stapleDlg');
 
   document.getElementById('addForm').addEventListener('submit', onSubmit);
+  const addInput = document.getElementById('addInput');
+  addInput.addEventListener('input', renderSuggest);
+  addInput.addEventListener('focus', () => { barFocused = true; renderSuggest(); });
+  addInput.addEventListener('blur', () => { barFocused = false; setTimeout(renderSuggest, 150); });
+  const sugBox = document.getElementById('suggest');
+  // pointerdown+preventDefault: המקלדת נשארת פתוחה כשלוחצים על הצעה
+  sugBox.addEventListener('pointerdown', e => { if (e.target.closest('.sug')) e.preventDefault(); });
+  sugBox.addEventListener('click', e => {
+    const b = e.target.closest('.sug');
+    if (!b) return;
+    const x = sugBox._list[+b.dataset.idx];
+    if (!x) return;
+    addItem(x.name, sugBox._qty || x.qty);
+    addInput.value = '';
+    renderSuggest();
+  });
   document.getElementById('btnCopy').addEventListener('click', copyList);
   document.getElementById('btnClear').addEventListener('click', clearBought);
   document.getElementById('btnStaples').addEventListener('click', () => { renderStaples(); dlg.showModal(); });
